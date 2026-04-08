@@ -62,7 +62,7 @@ input:focus,select:focus{border-color:var(--border2)}
 .food-macros{font-size:11px;color:var(--text3);margin-top:2px}
 .meal-item{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid var(--border)}
 .meal-item:last-child{border-bottom:none}
-.set-row{display:grid;grid-template-columns:2fr 1fr 1fr 28px;gap:6px;align-items:center;margin-bottom:6px}
+.set-row{display:grid;grid-template-columns:28px 72px 72px 24px;gap:5px;align-items:center;margin-bottom:5px}
 .remove-btn{background:none;border:none;cursor:pointer;color:var(--text3);font-size:18px;padding:0;line-height:1;font-family:var(--font)}
 .exercise-block{border:0.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px}
 .tag{display:inline-block;font-size:11px;padding:4px 10px;border-radius:20px;background:var(--bg2);color:var(--text2);border:0.5px solid var(--border);cursor:pointer;margin:3px 2px;font-family:var(--font)}
@@ -149,6 +149,13 @@ textarea:focus{border-color:var(--border2)}
   
   <!-- VITALS -->
   <div id="screen-vitals" class="screen active">
+    <div id="burn-estimate" style="display:none;align-items:center;justify-content:space-between;background:var(--bg2);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px">
+      <div>
+        <div style="font-size:11px;font-weight:600;color:var(--text3);letter-spacing:0.06em;text-transform:uppercase">Est. active calories</div>
+        <div style="font-size:22px;font-weight:600;color:var(--text);margin-top:2px" id="burn-value">—</div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);text-align:right;line-height:1.5">Based on weight<br>& workout data</div>
+    </div>
     <div class="section-label">Body</div>
     <div class="card">
       <div class="row-between"><span style="font-size:13px;color:var(--text2)">Weight</span>
@@ -183,7 +190,7 @@ textarea:focus{border-color:var(--border2)}
     </div>
     <div class="section-label">Notes</div>
     <div class="card">
-      <textarea id="day-notes" rows="3" placeholder="How's training going? Any observations..." oninput="saveNotes(this.value)"></textarea>
+      <textarea id="day-notes" rows="2" placeholder="How's training going? Any observations..." oninput="autoGrow(this);saveNotes(this.value)" style="overflow:hidden;resize:none;min-height:60px"></textarea>
     </div>
 
   </div>
@@ -203,8 +210,9 @@ textarea:focus{border-color:var(--border2)}
       <span class="tag" onclick="loadRoutine('pull',this)">Pull</span>
       <span class="tag" onclick="loadRoutine('legs',this)">Legs</span>
       <span class="tag" onclick="loadRoutine('upper',this)">Upper</span>
-      <span class="tag" onclick="loadRoutine('full',this)">Full body</span>
+      <span class="tag" onclick="loadRoutine('full',this)">Full</span>
       <span class="tag" onclick="loadRoutine('custom',this)">+ Custom</span>
+      <span class="tag" onclick="loadFavExercises(this)" id="fav-ex-tag">&#9825;</span>
     </div>
     <div id="exercises-container"></div>
     <button class="btn" style="width:100%;margin-top:4px" onclick="addExercise()">+ Add exercise</button>
@@ -218,6 +226,7 @@ textarea:focus{border-color:var(--border2)}
     <div id="macro-progress"></div>
     <div class="section-label">Add food</div>
     <div class="card">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px">From database or recent food</div>
       <input type="text" id="food-search" placeholder="e.g. 6oz grilled chicken, 2 eggs..." oninput="searchFood(this.value)" style="margin-bottom:10px">
       <div id="search-results"></div>
       <div id="quick-foods-dropdown" style="display:none;margin-bottom:4px">
@@ -237,7 +246,7 @@ textarea:focus{border-color:var(--border2)}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
         <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">Meal</div>
-          <select id="manual-meal"><option value="breakfast">Breakfast</option><option value="lunch" selected>Lunch</option><option value="dinner">Dinner</option><option value="snack">Snack</option></select>
+          <select id="manual-meal" style="background:var(--bg2);border:0.5px solid var(--border2);border-radius:var(--radius-sm);padding:9px 32px 9px 11px;font-size:13px;color:var(--text);width:100%;outline:none;font-family:var(--font);-webkit-appearance:none;appearance:none;background-image:url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2212%22 height=%2212%22 viewBox=%220 0 12 12%22><path d=%22M2 4l4 4 4-4%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%221.5%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22/></svg>');background-repeat:no-repeat;background-position:right 10px center"><option value="breakfast">Breakfast</option><option value="lunch">Lunch</option><option value="dinner">Dinner</option><option value="snack">Snack</option></select>
         </div>
         <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">Time</div><input type="text" id="manual-time" placeholder="12:00 pm"></div>
       </div>
@@ -303,6 +312,10 @@ textarea:focus{border-color:var(--border2)}
       </div>
       <div id="chart-macros-pct-empty" style="font-size:12px;color:var(--text3);padding:6px 0 10px;display:none">Set macro goals in Settings to see % chart.</div>
       <div style="position:relative;height:140px"><canvas id="chart-macros-pct" height="140"></canvas></div>
+    </div>
+    <div id="burn-chart-section" style="display:none">
+      <div class="section-label">Est. active calories</div>
+      <div class="card"><canvas id="chart-burn" class="chart-wrap" height="120"></canvas></div>
     </div>
     <div class="section-label">Workout volume (lbs total)</div>
     <div class="card"><canvas id="chart-volume" class="chart-wrap" height="120"></canvas></div>
@@ -384,8 +397,17 @@ textarea:focus{border-color:var(--border2)}
 const _d=new Date();
 const TODAY_KEY=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0')+'-'+String(_d.getDate()).padStart(2,'0');
 document.getElementById('today-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
+function defaultMeal(){
+  var h=new Date().getHours();
+  if(h<11)return 'breakfast';
+  if(h<15)return 'lunch';
+  if(h<20)return 'dinner';
+  return 'snack';
+}
 function nowTime(){const d=new Date();let h=d.getHours(),m=d.getMinutes(),ap=h>=12?'pm':'am';h=h%12||12;return h+':'+(m<10?'0'+m:m)+' '+ap;}
 document.getElementById('manual-time').value=nowTime();
+  if(document.getElementById('manual-meal'))document.getElementById('manual-meal').value=defaultMeal();
+document.getElementById('manual-meal').value=defaultMeal();
 
 let state={vitals:{},meals:[],exercises:[],water:0,sleepQ:null,feel:null,sleepMins:null,workoutTime:'',notes:'',cardio:[]};
 let allDays={},weekOffset=0,dayOffset=0,charts={},goals={cal:0,prot:0,carb:0,fat:0},prs={};
@@ -399,14 +421,18 @@ function init(){
   const g=lsGet('healthlog-goals');if(g)goals=g;
   const k=lsGet('healthlog-apikey');if(k)document.getElementById('api-key-input').value=k;
   const p=lsGet('healthlog-prs');if(p)prs=p;
+  loadFavExercisesFromStorage();
   loadFoodLists();
   renderAll();renderHistory();renderDataSummary();renderGoalInputs();renderApiUsage();setTimeout(()=>{if(typeof Chart!=="undefined")renderAnalytics();else{const w=setInterval(()=>{if(typeof Chart!=="undefined"){clearInterval(w);renderAnalytics();}},200);}},800);setTimeout(checkBackupReminder,2000);updateDayNav();
 }
 function saveState(){
   const key=typeof dayOffset!=='undefined'&&dayOffset!==0?getViewKey():TODAY_KEY;
   if(key===TODAY_KEY){lsSet('healthlog-today',state);}
+  // Always re-read allDays from storage first to avoid overwriting concurrent changes
+  const stored=lsGet('healthlog-alldays');if(stored)allDays=stored;
   allDays[key]=JSON.parse(JSON.stringify(state));
   lsSet('healthlog-alldays',allDays);
+  if(typeof renderBurnEstimate==='function')renderBurnEstimate();
 }
 function saveApiKey(v){lsSet('healthlog-apikey',v);}
 function saveGoals(){
@@ -476,11 +502,12 @@ function renderAll(){
   if(state.workoutTime)document.getElementById('workout-time').value=state.workoutTime;
   if(!state.cardio)state.cardio=[];
   renderCardio();
-  if(state.notes)document.getElementById('day-notes').value=state.notes;
+  if(state.notes){var notesEl=document.getElementById('day-notes');notesEl.value=state.notes;setTimeout(function(){autoGrow(notesEl);},0);}
   state.water=state.water||0;renderWater();
   if(state.sleepQ)document.querySelectorAll('#sleep-quality-row .feel-btn')[state.sleepQ-1].classList.add('selected');
   if(state.feel)document.querySelectorAll('#feel-row .feel-btn')[state.feel-1].classList.add('selected');
-  calcSleep();renderMeals();renderExercises();updateMacros();
+  if(!state.cardio)state.cardio=[];
+  calcSleep();renderMeals();renderExercises();renderCardio();updateMacros();renderBurnEstimate();
 }
 function showScreen(id,btn){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
@@ -536,11 +563,11 @@ function renderExercises(){
   var c=document.getElementById('exercises-container');c.innerHTML='';
   state.exercises.forEach(function(ex,ei){
     var block=document.createElement('div');block.className='exercise-block';
-    var sh='<div class="set-row"><span style="font-size:11px;color:var(--text3)">Set</span><span style="font-size:11px;color:var(--text3);text-align:center">Reps</span><span style="font-size:11px;color:var(--text3);text-align:center">lbs</span><span></span></div>';
+    var sh='<div class="set-row"><span style="font-size:10px;color:var(--text3)">#</span><span style="font-size:10px;color:var(--text3)">Reps</span><span style="font-size:10px;color:var(--text3)">lbs</span><span></span></div>';
     ex.sets.forEach(function(s,si){
       sh+='<div class="set-row"><div style="font-size:12px;color:var(--text3);padding:6px 0">'+(si+1)+'</div>';
-      sh+='<input type="number" placeholder="--" value="'+(s.reps||'')+'" oninput="updateSet('+ei+','+si+',\'reps\',this.value)" style="text-align:center;padding:6px 4px">';
-      sh+='<input type="number" placeholder="--" value="'+(s.weight||'')+'" oninput="updateSet('+ei+','+si+',\'weight\',this.value)" style="text-align:center;padding:6px 4px">';
+      sh+='<input type="number" placeholder="--" value="'+(s.reps||'')+'" oninput="updateSet('+ei+','+si+',\'reps\',this.value)" style="text-align:center;padding:5px 2px;font-size:13px">';
+      sh+='<input type="number" placeholder="--" value="'+(s.weight||'')+'" oninput="updateSet('+ei+','+si+',\'weight\',this.value)" style="text-align:center;padding:5px 2px;font-size:13px">';
       sh+='<button class="remove-btn" onclick="removeSet('+ei+','+si+')">x</button></div>';
     });
     var rh='<div style="font-size:11px;color:var(--text3);margin:10px 0 6px">Perceived effort (RPE)</div><div style="display:flex;gap:4px;flex-wrap:wrap">';
@@ -548,8 +575,9 @@ function renderExercises(){
     rh+='</div>';
     var top='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">';
     top+='<input type="text" placeholder="Exercise name" value="'+(ex.name||'')+'" oninput="updateExName('+ei+',this.value)" style="flex:1;font-weight:600;font-size:14px">';
-    top+='<button class="remove-btn" style="margin-left:8px;font-size:20px" onclick="removeExercise('+ei+')">x</button></div>';
-    block.innerHTML=top+sh+'<button class="btn btn-sm" style="margin-top:6px" onclick="addSet('+ei+')">+ Set</button>'+rh;
+    top+='<button class="remove-btn" style="margin-left:4px;font-size:18px" id="fav-ex-btn-'+ei+'" onclick="toggleFavExercise('+ei+',this)">'+( favExercises.indexOf((ex.name||'').toLowerCase())>=0 ? '&#9829;' : '&#9825;' )+'</button>';
+    top+='<button class="remove-btn" style="margin-left:4px;font-size:20px" onclick="removeExercise('+ei+')">x</button></div>';
+    block.innerHTML=top+'<div style="padding-right:36px">'+sh+'<button class="btn btn-sm" style="margin-top:6px;font-size:11px;padding:4px 10px" onclick="addSet('+ei+')">+ Set</button></div>'+rh;
     c.appendChild(block);
   });
 }
@@ -557,8 +585,8 @@ function renderExercises(){
 function updateExName(ei,v){state.exercises[ei].name=v;saveState();}
 function updateSet(ei,si,key,v){state.exercises[ei].sets[si][key]=v;saveState();}
 function addSet(ei){state.exercises[ei].sets.push({reps:'',weight:''});renderExercises();saveState();}
-function removeSet(ei,si){if(state.exercises[ei].sets.length>1){state.exercises[ei].sets.splice(si,1);renderExercises();saveState();}}
-function removeExercise(ei){state.exercises.splice(ei,1);renderExercises();saveState();}
+function removeSet(ei,si){if(!state.exercises||!state.exercises[ei]||!state.exercises[ei].sets)return;if(state.exercises[ei].sets.length>1){state.exercises[ei].sets.splice(si,1);renderExercises();saveState();}}
+function removeExercise(ei){if(!state.exercises)state.exercises=[];state.exercises.splice(ei,1);renderExercises();saveState();}
 function setRPE(ei,v,btn){state.exercises[ei].rpe=v;btn.closest('.exercise-block').querySelectorAll('.rpe-btn').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');saveState();}
 
 let searchTimer=null;
@@ -603,6 +631,7 @@ function addManualFood(){
   addToRecent({name,cal,prot,carb,fat});
   ['manual-name','manual-cal','manual-prot','manual-carb','manual-fat'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('manual-time').value=nowTime();
+document.getElementById('manual-meal').value=defaultMeal();
   updateMacros();renderMeals();saveState();
 }
 function updateMacros(){
@@ -860,12 +889,16 @@ function getViewKey(){
 function shiftDay(dir){
   // Save current state before navigating away
   saveState();
-  // If returning to today, reload today's state from storage
   const prevOffset=dayOffset;
   dayOffset+=dir;
   if(dayOffset>0)dayOffset=0;
-  if(dayOffset===0&&prevOffset!==0){
+  // Re-read fresh from storage on every navigation to catch all changes
+  const freshDays=lsGet('healthlog-alldays');if(freshDays)allDays=freshDays;
+  if(dayOffset===0){
     const s=lsGet('healthlog-today');if(s)state=s;
+  } else {
+    const dk=getViewKey();
+    state=allDays[dk]?JSON.parse(JSON.stringify(allDays[dk])):{vitals:{},meals:[],exercises:[],water:0,sleepQ:null,feel:null,sleepMins:null,workoutTime:'',notes:'',cardio:[]};
   }
   updateDayNav();
   loadDayView();
@@ -912,10 +945,8 @@ function loadDayView(){
   // Notes
   document.getElementById('day-notes').value=dayData&&dayData.notes?dayData.notes:'';
   // Exercises & meals
-  // For past days, load into state so edits work via normal handlers
-  if(!isToday&&dayData){
-    state=JSON.parse(JSON.stringify(dayData));
-  } else if(!isToday&&!dayData){
+  // For past days, state was already set by shiftDay - just ensure defaults
+  if(!isToday&&!state.meals){
     state={vitals:{},meals:[],exercises:[],water:0,sleepQ:null,feel:null,sleepMins:null,workoutTime:'',notes:'',cardio:[]};
   }
   renderExercises();
@@ -980,6 +1011,7 @@ function addCardio(){
   renderCardio();saveState();
 }
 function removeCardio(ci){
+  if(!state.cardio)state.cardio=[];
   state.cardio.splice(ci,1);renderCardio();saveState();
 }
 function updateCardio(ci,key,val){
@@ -1097,7 +1129,116 @@ function resetApiUsage(){
   lsSet('healthlog-api-usage',{calls:0,inputTokens:0,outputTokens:0});
   renderApiUsage();
 }
+
+// ── Calorie burn estimate ───────────────────────────────────────────────────
+function getLastWeight(){
+  // Use today's weight or look back through allDays for most recent
+  if(state.vitals&&state.vitals.weight&&parseFloat(state.vitals.weight))
+    return parseFloat(state.vitals.weight);
+  var keys=Object.keys(allDays).sort().reverse();
+  for(var i=0;i<keys.length;i++){
+    var d=allDays[keys[i]];
+    if(d&&d.vitals&&d.vitals.weight&&parseFloat(d.vitals.weight))
+      return parseFloat(d.vitals.weight);
+  }
+  return null;
+}
+function estimateCalBurn(dayState){
+  var weightLbs=getLastWeight();
+  if(!weightLbs)return null;
+  var weightKg=weightLbs*0.453592;
+  var totalCals=0;
+  // Lifting: MET based on avg RPE (3=light, 5=moderate, 8=vigorous)
+  if(dayState.exercises&&dayState.exercises.length){
+    var rpeVals=dayState.exercises.filter(function(e){return e.rpe;}).map(function(e){return parseFloat(e.rpe);});
+    var avgRpe=rpeVals.length?rpeVals.reduce(function(a,b){return a+b;},0)/rpeVals.length:5;
+    var met=avgRpe<=4?3:avgRpe<=6?4:avgRpe<=8?5.5:7;
+    // Parse workout duration
+    var durMins=0;
+    if(dayState.workoutTime){
+      // workoutTime is a clock time not duration - use 60min default if we have exercises
+      durMins=60;
+    }
+    // If no workout time logged, estimate from sets: ~2.5 min per set
+    if(!durMins){
+      var totalSets=dayState.exercises.reduce(function(a,e){return a+(e.sets?e.sets.filter(function(s){return s.reps;}).length:0);},0);
+      durMins=totalSets*2.5;
+    }
+    if(durMins>0)totalCals+=met*(weightKg)*(durMins/60);
+  }
+  // Cardio: use MET based on pace/type
+  if(dayState.cardio&&dayState.cardio.length){
+    dayState.cardio.forEach(function(cd){
+      if(!cd.duration&&!cd.distance)return;
+      var mins=parseDurMins(cd.duration)||0;
+      var dist=parseFloat(cd.distance)||0;
+      // Determine MET
+      var met=7; // default run
+      var type=(cd.type||'').toLowerCase();
+      if(type==='bike'||type==='cycle')met=8;
+      else if(type==='swim')met=7;
+      else if(type==='walk'||type==='hike')met=4;
+      else if(type==='row')met=7;
+      else if(type==='run'){
+        // Refine by pace if available
+        if(dist&&mins){
+          var mph=dist/(mins/60);
+          met=mph<5?7:mph<7?9:mph<9?11:13;
+        }
+      }
+      var duration=mins||( dist&&type==='run'?dist/6*60:60 );
+      if(duration>0)totalCals+=met*weightKg*(duration/60);
+    });
+  }
+  return totalCals>0?Math.round(totalCals):null;
+}
+function renderBurnEstimate(){
+  var el=document.getElementById('burn-estimate');
+  if(!el)return;
+  var burn=estimateCalBurn(state);
+  if(!burn){el.style.display='none';return;}
+  el.style.display='flex';
+  document.getElementById('burn-value').textContent=burn+' kcal';
+}
+
+// ── Exercise favourites ─────────────────────────────────────────────────────
+var favExercises=[];
+function loadFavExercisesFromStorage(){
+  favExercises=lsGet('healthlog-fav-exercises')||[];
+}
+function toggleFavExercise(ei,btn){
+  var name=(state.exercises[ei]&&state.exercises[ei].name||'').toLowerCase();
+  if(!name)return;
+  var idx=favExercises.indexOf(name);
+  if(idx>=0){
+    favExercises.splice(idx,1);
+    btn.innerHTML='&#9825;';
+  } else {
+    favExercises.push(name);
+    btn.innerHTML='&#9829;';
+  }
+  lsSet('healthlog-fav-exercises',favExercises);
+}
+function loadFavExercises(el){
+  document.querySelectorAll('.tag').forEach(function(t){t.classList.remove('active');});
+  el.classList.add('active');
+  if(!favExercises.length){showToast('No favourite exercises yet — tap ♡ on any exercise to save it');return;}
+  // Load favourites as exercises (preserve current if any, add missing)
+  var existing=(state.exercises||[]).map(function(e){return (e.name||'').toLowerCase();});
+  favExercises.forEach(function(name){
+    var display=name.charAt(0).toUpperCase()+name.slice(1);
+    if(existing.indexOf(name)<0){
+      state.exercises.push({name:display,sets:[{reps:'',weight:''}],rpe:''});
+    }
+  });
+  renderExercises();saveState();
+}
 // ── Notes ──────────────────────────────────────────────────────────────────
+
+function autoGrow(el){
+  el.style.height='auto';
+  el.style.height=(el.scrollHeight)+'px';
+}
 function saveNotes(v){state.notes=v;saveState();}
 
 // ── Personal Records ───────────────────────────────────────────────────────
@@ -1125,13 +1266,15 @@ function renderPRs(){
   c.innerHTML='';
   keys.forEach(k=>{
     const r=prs[k];
-    const row=document.createElement('div');row.className='pr-row';row.style.cursor='pointer';
-    row.innerHTML='<div><span class="pr-name">'+r.name+'</span></div>'
-      +'<div style="display:flex;align-items:center">'
-      +'<span class="pr-val">'+r.weight+' lbs x '+r.reps+'</span>'
-      +'<span class="pr-badge">~'+r.est1rm+'lb 1RM</span>'
-      +'<span class="pr-date">'+new Date(r.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</span>'
-      +'<span style="font-size:11px;color:var(--text3);margin-left:8px">Edit</span>'
+    const row=document.createElement('div');row.className='pr-row';row.style.cursor='pointer';row.style.flexDirection='column';row.style.alignItems='flex-start';row.style.gap='4px';
+    row.innerHTML='<div style="display:flex;align-items:center;gap:8px;width:100%">'
+      +'<span class="pr-name">'+r.name+'</span>'
+      +'<span class="pr-val" style="color:var(--text2)">'+r.weight+' lbs x '+r.reps+'</span>'
+      +'<span class="pr-badge">~'+r.est1rm+' 1RM</span>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;width:100%">'
+      +'<span class="pr-date">'+new Date(r.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+'</span>'
+      +'<span style="font-size:11px;color:var(--text3)">Edit</span>'
       +'</div>';
     row.addEventListener('click',function(){editPR(k);});
     c.appendChild(row);
@@ -1238,10 +1381,12 @@ function loadTestData(overwrite){
 
 // ── Trainer weekly report ──────────────────────────────────────────────────
 function showTrainerReport(){
+  // Flush current state to allDays before generating report
+  saveState();
   // Ensure analytics tab charts are rendered before capturing
   renderAnalytics();
   // Short delay to let Chart.js finish painting before toDataURL
-  setTimeout(function(){_doTrainerReport();}, 400);
+  setTimeout(function(){_doTrainerReport();}, 600);
 }
 function _doTrainerReport(){
   // Get last 7 days
@@ -1326,6 +1471,7 @@ function _doTrainerReport(){
       </td>
       <td style="padding:14px 12px;border-bottom:1px solid #eee;vertical-align:top;font-size:13px">
         <div style="color:#888;font-size:11px">Feel: ${feel} &nbsp; Water: ${water}</div>
+        ${(function(){var b=estimateCalBurn(d.data||{});return b?'<div style="margin-top:4px;font-size:11px;color:#555"><strong>~'+b+'</strong> active kcal</div>':'';})()}
         ${cal?'<div style="margin-top:6px;font-size:11px;line-height:1.8">'
           +'<strong>'+cal+'</strong> kcal<br>'
           +'<strong style="color:#d4640a">'+prot+'</strong><span style="color:#d4640a">g P</span><br>'
@@ -1358,6 +1504,7 @@ function _doTrainerReport(){
         ${avg(avgSleep)?'<td style="padding:0 24px 0 0;white-space:nowrap"><div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Avg sleep</div><div style="font-size:22px;font-weight:600;margin-top:2px">'+avg(avgSleep)+'h</div></td>':''}
         ${avg(avgFeel)?'<td style="padding:0 24px 0 0;white-space:nowrap"><div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Avg feeling</div><div style="font-size:22px;font-weight:600;margin-top:2px">'+avg(avgFeel)+'/5</div></td>':''}
         ${avg(avgProt)?'<td style="padding:0 24px 0 0;white-space:nowrap"><div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Avg protein</div><div style="font-size:22px;font-weight:600;margin-top:2px">'+avg(avgProt)+'g</div></td>':''}
+        ${(function(){var burns=logged.filter(function(d){return d.data;}).map(function(d){return estimateCalBurn(d.data);}).filter(function(v){return v;});var avgB=burns.length?Math.round(burns.reduce(function(a,b){return a+b;},0)/burns.length):null;return avgB?'<td style="padding:0;white-space:nowrap"><div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Avg active cals</div><div style="font-size:22px;font-weight:600;margin-top:2px">'+avgB+'</div></td>':''})()}
         <td style="padding:0;white-space:nowrap"><div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Days logged</div><div style="font-size:22px;font-weight:600;margin-top:2px">${logged.length}/7</div></td>
       </tr>
     </table>`;
@@ -1575,6 +1722,11 @@ function renderAnalytics(){
     lineDS(sleepQs,l2,{label:'Sleep quality',dash:[4,3]})
   ],{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:tc,font:{size:10},boxWidth:12,padding:8}}},scales:{x:xAxis(),y:yAxis()}});
   mk('chart-cals','line',[lineDS(cals,lc)],lineOpts());
+  // Burn chart
+  const burnData=dates.map(function(d){var s=allDays[d];return s?estimateCalBurn(s):null;});
+  var hasBurn=burnData.some(function(v){return v!==null;});
+  document.getElementById('burn-chart-section').style.display=hasBurn?'block':'none';
+  if(hasBurn)mk('chart-burn','line',[lineDS(burnData,lc)],lineOpts());
   mk('chart-volume','line',[lineDS(vols,lc)],lineOpts(null,{beginAtZero:true,callback:function(v){if(v>=1000)return Math.round(v/1000*10)/10+'k';return v;}}));
 
   // Macros grams bar chart
