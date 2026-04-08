@@ -1202,8 +1202,12 @@ function _doTrainerReport(){
     if(d.exercises&&d.exercises.filter(e=>e.name).length){
       exHtml=d.exercises.filter(e=>e.name).map(ex=>{
         const sets=ex.sets.filter(s=>s.reps||s.weight);
-        const setsStr=sets.map(s=>(s.weight?s.weight+'lb':'bw')+'×'+(s.reps||'?')).join(', ');
-        return '<div style="margin-bottom:4px"><strong>'+ex.name+'</strong>'+(ex.rpe?' <span style="color:#888;font-size:11px">RPE '+ex.rpe+'</span>':'')+'<br><span style="color:#666;font-size:11px">'+setsStr+'</span></div>';
+        const setsStr=sets.map(s=>(s.weight?s.weight+'lb':'bw')+'x'+(s.reps||'?')).join(', ');
+        return '<div style="margin-bottom:8px">'
+          +'<strong style="font-size:12px">'+ex.name+'</strong><br>'
+          +(ex.rpe?'<span style="color:#888;font-size:11px">RPE '+ex.rpe+'</span><br>':'')
+          +'<span style="color:#555;font-size:11px">'+setsStr+'</span>'
+          +'</div>';
       }).join('');
     }
 
@@ -1213,21 +1217,26 @@ function _doTrainerReport(){
       const byMeal={};
       d.meals.forEach(m=>{if(!byMeal[m.meal])byMeal[m.meal]=[];byMeal[m.meal].push(m);});
       mealHtml=Object.entries(byMeal).map(([meal,items])=>
-        '<div style="margin-bottom:6px"><strong style="text-transform:capitalize">'+meal+'</strong><br>'+
-        items.map(i=>'<span style="color:#555;font-size:11px">'+i.name+' ('+i.cal+'kcal, '+i.prot+'g P)</span>').join('<br>')+'</div>'
+        '<div style="margin-bottom:8px"><strong style="font-size:12px;text-transform:capitalize">'+meal+'</strong><br>'+
+        items.map(i=>
+          '<div style="margin-top:3px">'
+          +'<span style="color:#333;font-size:11px">'+i.name+'</span><br>'
+          +'<span style="color:#888;font-size:10px">'+i.cal+' kcal &middot; '+i.prot+'g P</span>'
+          +'</div>'
+        ).join('')+'</div>'
       ).join('');
     }
 
     bodyRows+=`
     <tr>
       <td style="padding:14px 12px;border-bottom:1px solid #eee;vertical-align:top;white-space:nowrap;font-weight:600;font-size:13px">${dayLabel}</td>
-      <td style="padding:14px 12px;border-bottom:1px solid #eee;vertical-align:top;font-size:13px">
+      <td style="padding:14px 12px;border-bottom:1px solid #eee;vertical-align:top;font-size:12px;white-space:nowrap">
         <div>${weight}</div>
-        <div style="color:#888;font-size:11px;margin-top:2px">${steps} steps</div>
+        <div style="color:#888;font-size:10px;margin-top:2px">${steps} steps</div>
       </td>
-      <td style="padding:14px 12px;border-bottom:1px solid #eee;vertical-align:top;font-size:13px">
+      <td style="padding:14px 12px;border-bottom:1px solid #eee;vertical-align:top;font-size:12px;white-space:nowrap">
         <div>${sleep}</div>
-        <div style="color:#888;font-size:11px;margin-top:2px">Quality: ${sleepQ}</div>
+        <div style="color:#888;font-size:10px;margin-top:2px">Quality: ${sleepQ}</div>
       </td>
       <td style="padding:14px 12px;border-bottom:1px solid #eee;vertical-align:top;font-size:13px">
         <div style="color:#888;font-size:11px">Feel: ${feel} &nbsp; Water: ${water}</div>
@@ -1261,19 +1270,68 @@ function _doTrainerReport(){
     </div>`;
 
   // Capture chart snapshots before building HTML
-  function chartImg(id){
-    var el=document.getElementById(id);
-    if(!el)return '';
-    try{return '<img src="'+el.toDataURL('image/png')+'" style="width:100%;height:auto;border-radius:6px;margin-top:8px">';}
-    catch(e){return '';}
+  // Render each chart into a fresh offscreen canvas so we get a clean PNG
+  // regardless of whether the Analytics tab has been visited
+  function renderChartToImg(id, type, datasets, options, w, h){
+    var offscreen=document.createElement('canvas');
+    offscreen.width=w||800;offscreen.height=h||240;
+    // Temporarily append hidden so Chart.js can measure
+    offscreen.style.cssText='position:fixed;left:-9999px;top:-9999px;width:'+offscreen.width+'px;height:'+offscreen.height+'px';
+    document.body.appendChild(offscreen);
+    var ch=new Chart(offscreen.getContext('2d'),{type:type,data:datasets,options:options});
+    ch.update();
+    var src='';
+    try{src=offscreen.toDataURL('image/png');}catch(e){}
+    ch.destroy();
+    offscreen.remove();
+    return src?'<img src="'+src+'" style="width:100%;height:auto;border-radius:6px;display:block">':'';
   }
-  var chartWeight=chartImg('chart-weight');
-  var chartSleep=chartImg('chart-sleep');
-  var chartFeel=chartImg('chart-feel');
-  var chartCals=chartImg('chart-cals');
-  var chartMacros=chartImg('chart-macros');
-  var chartMacrosPct=chartImg('chart-macros-pct');
-  var chartVolume=chartImg('chart-volume');
+
+  // Shared chart style
+  var tc='rgba(0,0,0,0.45)',gc='rgba(0,0,0,0.08)',lc='rgba(0,0,0,0.85)',l2='rgba(0,0,0,0.35)';
+  var baseOpts={responsive:false,animation:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:18}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:18},maxTicksLimit:5}}}};
+  function lineDS(data,color,opts){return {data:data,borderColor:color,borderWidth:2,pointRadius:5,tension:0.3,spanGaps:true,pointBackgroundColor:color,fill:false,label:opts&&opts.label||'',borderDash:opts&&opts.dash||[]};}
+
+  // Build data same way renderAnalytics does
+  var exportDates=getWeekDates();
+  if(Object.keys(allDays).includes(TODAY_KEY))allDays[TODAY_KEY]=state;
+  var expLabels=exportDates.map(function(d){return new Date(d+'T12:00:00').toLocaleDateString('en-US',{weekday:'short'});});
+  var expWeights=exportDates.map(function(d){var s=allDays[d];return s&&s.vitals&&s.vitals.weight?parseFloat(s.vitals.weight):null;});
+  var expSleep=exportDates.map(function(d){var s=allDays[d];return s&&s.sleepMins?Math.round(s.sleepMins/60*10)/10:null;});
+  var expFeels=exportDates.map(function(d){var s=allDays[d];return s&&s.feel?s.feel:null;});
+  var expSleepQ=exportDates.map(function(d){var s=allDays[d];return s&&s.sleepQ?s.sleepQ:null;});
+  var expCals=exportDates.map(function(d){var s=allDays[d];return s&&s.meals?s.meals.reduce(function(a,m){return a+m.cal;},0)||null:null;});
+  var expProt=exportDates.map(function(d){var s=allDays[d];if(!s||!s.meals)return null;var v=s.meals.reduce(function(a,m){return a+m.prot;},0);return v||null;});
+  var expCarb=exportDates.map(function(d){var s=allDays[d];if(!s||!s.meals)return null;var v=s.meals.reduce(function(a,m){return a+m.carb;},0);return v||null;});
+  var expFat=exportDates.map(function(d){var s=allDays[d];if(!s||!s.meals)return null;var v=s.meals.reduce(function(a,m){return a+m.fat;},0);return v||null;});
+  var expVol=exportDates.map(function(d){return calcVolume(allDays[d]);});
+
+  function hasData(arr){return arr.some(function(v){return v!==null;});}
+
+  var lineOpts=JSON.parse(JSON.stringify(baseOpts));
+  var feelOpts=JSON.parse(JSON.stringify(baseOpts));
+  feelOpts.plugins={legend:{display:true,labels:{color:tc,font:{size:16},boxWidth:20,padding:12}}};
+
+  var chartWeight=hasData(expWeights)?renderChartToImg('_w','line',{labels:expLabels,datasets:[lineDS(expWeights,lc)]},lineOpts):'';
+  var chartSleep=hasData(expSleep)?renderChartToImg('_s','line',{labels:expLabels,datasets:[lineDS(expSleep,lc)]},lineOpts):'';
+  var chartFeel=hasData(expFeels)?renderChartToImg('_f','line',{labels:expLabels,datasets:[lineDS(expFeels,lc,{label:'Feeling'}),lineDS(expSleepQ,l2,{label:'Sleep quality',dash:[6,4]})]},feelOpts):'';
+  var chartCals=hasData(expCals)?renderChartToImg('_c','line',{labels:expLabels,datasets:[lineDS(expCals,lc)]},lineOpts):'';
+  var barOpts=JSON.parse(JSON.stringify(baseOpts));
+  barOpts.scales.y.suggestedMax=110;
+  barOpts.plugins={legend:{display:false},tooltip:{callbacks:{label:function(ctx){return ctx.parsed.y!=null?ctx.dataset.label+': '+ctx.parsed.y+'g':'';}}}};
+  var chartMacros=hasData(expProt)?renderChartToImg('_m','bar',{labels:expLabels,datasets:[{data:expProt,backgroundColor:'#d4640acc',borderColor:'#d4640a',borderWidth:1,borderRadius:3,label:'Protein'},{data:expCarb,backgroundColor:'#2a7a3bcc',borderColor:'#2a7a3b',borderWidth:1,borderRadius:3,label:'Carbs'},{data:expFat,backgroundColor:'#1a5fa8cc',borderColor:'#1a5fa8',borderWidth:1,borderRadius:3,label:'Fat'}]},barOpts):'';
+  var chartMacrosPct='';
+  if(goals.prot||goals.carb||goals.fat){
+    var pctOpts=JSON.parse(JSON.stringify(barOpts));
+    var expProtP=exportDates.map(function(d){var s=allDays[d];if(!s||!s.meals||!goals.prot)return null;return Math.round(s.meals.reduce(function(a,m){return a+m.prot;},0)/goals.prot*100);});
+    var expCarbP=exportDates.map(function(d){var s=allDays[d];if(!s||!s.meals||!goals.carb)return null;return Math.round(s.meals.reduce(function(a,m){return a+m.carb;},0)/goals.carb*100);});
+    var expFatP=exportDates.map(function(d){var s=allDays[d];if(!s||!s.meals||!goals.fat)return null;return Math.round(s.meals.reduce(function(a,m){return a+m.fat;},0)/goals.fat*100);});
+    chartMacrosPct=hasData(expProtP)?renderChartToImg('_mp','bar',{labels:expLabels,datasets:[{data:expProtP,backgroundColor:'#d4640acc',borderColor:'#d4640a',borderWidth:1,borderRadius:3,label:'Protein'},{data:expCarbP,backgroundColor:'#2a7a3bcc',borderColor:'#2a7a3b',borderWidth:1,borderRadius:3,label:'Carbs'},{data:expFatP,backgroundColor:'#1a5fa8cc',borderColor:'#1a5fa8',borderWidth:1,borderRadius:3,label:'Fat'}]},pctOpts):'';
+  }
+  var volOpts=JSON.parse(JSON.stringify(baseOpts));
+  volOpts.scales.y.beginAtZero=true;
+  volOpts.scales.y.ticks.callback=function(v){return v>=1000?Math.round(v/1000*10)/10+'k':v;};
+  var chartVolume=hasData(expVol)?renderChartToImg('_v','line',{labels:expLabels,datasets:[lineDS(expVol,lc)]},volOpts):'';
 
   const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Weekly Report — ${weekStart} to ${weekEnd}</title>
@@ -1300,16 +1358,14 @@ ${summaryHtml}
   <tbody>${bodyRows}</tbody>
 </table>
 
-<h2 style="font-size:18px;font-weight:600;margin:40px 0 16px">Charts</h2>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:32px">
-  ${chartWeight?'<div><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Weight</div>'+chartWeight+'</div>':''}
-  ${chartSleep?'<div><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Sleep (hrs)</div>'+chartSleep+'</div>':''}
-  ${chartFeel?'<div><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Feeling & sleep quality</div>'+chartFeel+'</div>':''}
-  ${chartCals?'<div><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Calories</div>'+chartCals+'</div>':''}
-  ${chartMacros?'<div><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Macros (grams)</div>'+chartMacros+'</div>':''}
-  ${chartMacrosPct?'<div><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Macros vs goal (%)</div>'+chartMacrosPct+'</div>':''}
-  ${chartVolume?'<div style="grid-column:1/-1"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px">Workout volume</div>'+chartVolume+'</div>':''}
-</div>
+<h2 style="font-size:18px;font-weight:600;margin:40px 0 16px;page-break-before:always">Charts</h2>
+${chartWeight?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Weight</div>'+chartWeight+'</div>':''}
+${chartSleep?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Sleep (hrs)</div>'+chartSleep+'</div>':''}
+${chartFeel?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Feeling & sleep quality</div>'+chartFeel+'</div>':''}
+${chartCals?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Calories</div>'+chartCals+'</div>':''}
+${chartMacros?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Macros (grams)</div>'+chartMacros+'</div>':''}
+${chartMacrosPct?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Macros vs goal (%)</div>'+chartMacrosPct+'</div>':''}
+${chartVolume?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Workout volume</div>'+chartVolume+'</div>':''}
 </body></html>`;
 
   // Open in same tab via blob URL - no popup permission needed
