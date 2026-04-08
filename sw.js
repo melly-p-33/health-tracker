@@ -1,11 +1,12 @@
-const CACHE = 'health-log-v1';
-const ASSETS = ['./index.html', './manifest.json'];
+const CACHE = 'health-log-v2';
+const ASSETS = ['./manifest.json'];
 
-// Install: cache the app shell
+// Install: pre-cache non-HTML assets only
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE).then(cache => cache.addAll(ASSETS))
   );
+  self.skipWaiting();
 });
 
 // Activate: clean up old caches
@@ -18,22 +19,40 @@ self.addEventListener('activate', e => {
   self.clients.claim();
 });
 
-// Fetch: network first, fall back to cache
-// This means the app always tries to get the latest version
+// Fetch strategy:
+// - HTML (index.html): always network-first, fall back to cache
+// - Everything else: cache-first
 self.addEventListener('fetch', e => {
-  e.respondWith(
-    fetch(e.request)
-      .then(res => {
-        // Update cache with fresh response
-        const clone = res.clone();
-        caches.open(CACHE).then(cache => cache.put(e.request, clone));
-        return res;
+  const url = new URL(e.request.url);
+  const isHTML = e.request.destination === 'document' || url.pathname.endsWith('.html') || url.pathname === '/';
+
+  if (isHTML) {
+    // Network first for HTML - ensures latest version always loads
+    e.respondWith(
+      fetch(e.request)
+        .then(res => {
+          const clone = res.clone();
+          caches.open(CACHE).then(cache => cache.put(e.request, clone));
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
+  } else {
+    // Cache first for other assets (JS libs, etc)
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        return fetch(e.request).then(res => {
+          const clone = res.clone();
+          caches.open(CACHE).then(cache => cache.put(e.request, clone));
+          return res;
+        });
       })
-      .catch(() => caches.match(e.request))
-  );
+    );
+  }
 });
 
-// Allow the page to trigger skipWaiting so update applies immediately
+// Allow the page to trigger skipWaiting
 self.addEventListener('message', e => {
   if (e.data && e.data.action === 'skipWaiting') self.skipWaiting();
 });

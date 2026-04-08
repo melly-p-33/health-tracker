@@ -385,9 +385,14 @@ function init(){
   const k=lsGet('healthlog-apikey');if(k)document.getElementById('api-key-input').value=k;
   const p=lsGet('healthlog-prs');if(p)prs=p;
   loadFoodLists();
-  renderAll();renderHistory();renderDataSummary();renderGoalInputs();setTimeout(()=>{if(typeof Chart!=="undefined")renderAnalytics();else{const w=setInterval(()=>{if(typeof Chart!=="undefined"){clearInterval(w);renderAnalytics();}},200);}},300);setTimeout(checkBackupReminder,2000);updateDayNav();
+  renderAll();renderHistory();renderDataSummary();renderGoalInputs();setTimeout(()=>{if(typeof Chart!=="undefined")renderAnalytics();else{const w=setInterval(()=>{if(typeof Chart!=="undefined"){clearInterval(w);renderAnalytics();}},200);}},800);setTimeout(checkBackupReminder,2000);updateDayNav();
 }
-function saveState(){lsSet('healthlog-today',state);allDays[TODAY_KEY]=JSON.parse(JSON.stringify(state));lsSet('healthlog-alldays',allDays);}
+function saveState(){
+  const key=typeof dayOffset!=='undefined'&&dayOffset!==0?getViewKey():TODAY_KEY;
+  if(key===TODAY_KEY){lsSet('healthlog-today',state);}
+  allDays[key]=JSON.parse(JSON.stringify(state));
+  lsSet('healthlog-alldays',allDays);
+}
 function saveApiKey(v){lsSet('healthlog-apikey',v);}
 function saveGoals(){
   goals={cal:parseInt(document.getElementById('goal-cal').value)||0,prot:parseInt(document.getElementById('goal-prot').value)||0,carb:parseInt(document.getElementById('goal-carb').value)||0,fat:parseInt(document.getElementById('goal-fat').value)||0};
@@ -604,10 +609,99 @@ function renderMeals(){
   sorted.forEach(meal=>{
     const items=byMeal[meal],sec=document.createElement('div');sec.innerHTML=`<div class="section-label">${meal}</div>`;
     const card=document.createElement('div');card.className='card';
-    items.forEach(item=>{card.innerHTML+=`<div class="meal-item"><div style="flex:1"><div style="font-size:13px;color:var(--text);font-weight:500">${item.name}</div><div style="font-size:11px;margin-top:2px">${item.cal} kcal  .  <span style="color:var(--prot)">${item.prot}g P</span>  .  <span style="color:var(--carb)">${item.carb}g C</span>  .  <span style="color:var(--fat)">${item.fat}g F</span>${item.time?` <span style="color:var(--text3)"> .  ${item.time}</span>`:''}</div></div><button class="remove-btn" style="margin-left:8px" onclick="removeMeal(${item.i})">x</button></div>`;});
+    items.forEach(item=>{
+      const div=document.createElement('div');div.className='meal-item';
+      div.innerHTML='<div style="flex:1"><div style="font-size:13px;color:var(--text);font-weight:500">'+item.name+'</div>'
+        +'<div style="font-size:11px;margin-top:2px">'+item.cal+' kcal &nbsp;·&nbsp; <span style="color:var(--prot)">'+item.prot+'g P</span> &nbsp;·&nbsp; <span style="color:var(--carb)">'+item.carb+'g C</span> &nbsp;·&nbsp; <span style="color:var(--fat)">'+item.fat+'g F</span>'+(item.time?' &nbsp;·&nbsp; <span style="color:var(--text3)">'+item.time+'</span>':'')+'</div></div>'
+        +'<button class="btn btn-sm" style="margin-left:6px;font-size:11px;padding:4px 8px" onclick="editMeal('+item.i+')">Edit</button>'
+        +'<button class="remove-btn" style="margin-left:4px" onclick="removeMeal('+item.i+')">x</button>';
+      card.appendChild(div);
+    });
     sec.appendChild(card);c.appendChild(sec);
   });
 }
+
+function makeSheet(innerHtml){
+  var sheet=document.createElement('div');
+  sheet.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);display:flex;align-items:flex-end;z-index:300;max-width:430px;margin:0 auto';
+  sheet.innerHTML=innerHtml;
+  sheet.addEventListener('click',function(e){if(e.target===sheet)sheet.remove();});
+  document.body.appendChild(sheet);
+  return sheet;
+}
+function closeSheet(el){
+  var s=el;
+  while(s&&s.style&&s.style.cssText.indexOf('position:fixed')<0)s=s.parentNode;
+  if(s)s.remove();
+}
+function editMeal(i){
+  var m=state.meals[i];if(!m)return;
+  makeSheet(
+    '<div style="background:var(--bg);border-radius:16px 16px 0 0;padding:20px;width:100%;max-height:80vh;overflow-y:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+    +'<span style="font-size:15px;font-weight:600">Edit food</span>'
+    +'<button onclick="closeSheet(this)" style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer;font-family:var(--font)">x</button></div>'
+    +'<input type="text" id="edit-meal-name" value="'+m.name.split('"').join('&quot;')+'" style="margin-bottom:8px">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px;margin-bottom:8px">'
+    +'<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">Calories</div><input type="number" id="edit-meal-cal" value="'+m.cal+'"></div>'
+    +'<div><div style="font-size:10px;color:var(--prot);margin-bottom:3px">Protein</div><input type="number" id="edit-meal-prot" value="'+m.prot+'"></div>'
+    +'<div><div style="font-size:10px;color:var(--carb);margin-bottom:3px">Carbs</div><input type="number" id="edit-meal-carb" value="'+m.carb+'"></div>'
+    +'<div><div style="font-size:10px;color:var(--fat);margin-bottom:3px">Fat</div><input type="number" id="edit-meal-fat" value="'+m.fat+'"></div></div>'
+    +'<button class="btn btn-primary" style="width:100%;padding:12px;margin-top:4px" onclick="saveMealEdit('+i+',this)">Save changes</button>'
+    +'</div>'
+  );
+}
+function saveMealEdit(i,btn){
+  state.meals[i].name=document.getElementById('edit-meal-name').value||state.meals[i].name;
+  state.meals[i].cal=parseInt(document.getElementById('edit-meal-cal').value)||0;
+  state.meals[i].prot=parseInt(document.getElementById('edit-meal-prot').value)||0;
+  state.meals[i].carb=parseInt(document.getElementById('edit-meal-carb').value)||0;
+  state.meals[i].fat=parseInt(document.getElementById('edit-meal-fat').value)||0;
+  closeSheet(btn);
+  updateMacros();renderMeals();saveState();
+  showToast('Food updated');
+}
+function editPR(key){
+  var r=prs[key];if(!r)return;
+  var sheet=makeSheet(
+    '<div style="background:var(--bg);border-radius:16px 16px 0 0;padding:20px;width:100%">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">'
+    +'<span style="font-size:15px;font-weight:600">Edit PR</span>'
+    +'<button id="pr-sheet-close" style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer;font-family:var(--font)">x</button></div>'
+    +'<input type="text" id="edit-pr-name" value="'+r.name.split('"').join('&quot;')+'" style="margin-bottom:8px">'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">'
+    +'<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">Weight (lbs)</div><input type="number" id="edit-pr-weight" value="'+r.weight+'"></div>'
+    +'<div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">Reps</div><input type="number" id="edit-pr-reps" value="'+r.reps+'"></div></div>'
+    +'<div style="display:flex;gap:8px">'
+    +'<button id="pr-sheet-save" class="btn btn-primary" style="flex:1;padding:12px">Save</button>'
+    +'<button id="pr-sheet-delete" class="btn btn-danger" style="padding:12px">Delete</button>'
+    +'</div></div>'
+  );
+  sheet.querySelector('#pr-sheet-close').addEventListener('click',function(){sheet.remove();});
+  sheet.querySelector('#pr-sheet-save').addEventListener('click',function(){savePREdit(key,sheet);});
+  sheet.querySelector('#pr-sheet-delete').addEventListener('click',function(){deletePR(key,sheet);});
+}
+function savePREdit(key,sheet){
+  var name=document.getElementById('edit-pr-name').value.trim()||prs[key].name;
+  var weight=parseFloat(document.getElementById('edit-pr-weight').value)||0;
+  var reps=parseInt(document.getElementById('edit-pr-reps').value)||1;
+  var est1rm=Math.round(weight*(1+reps/30));
+  var oldDate=prs[key]?prs[key].date:TODAY_KEY;
+  delete prs[key];
+  prs[name.toLowerCase()]={name:name,weight:weight,reps:reps,est1rm:est1rm,date:oldDate};
+  lsSet('healthlog-prs',prs);
+  if(sheet&&sheet.remove)sheet.remove();
+  renderPRs();
+  showToast('PR updated');
+}
+function deletePR(key,sheet){
+  delete prs[key];
+  lsSet('healthlog-prs',prs);
+  if(sheet&&sheet.remove)sheet.remove();
+  renderPRs();
+  showToast('PR deleted');
+}
+
 function removeMeal(i){state.meals.splice(i,1);updateMacros();renderMeals();saveState();}
 function renderHistory(){
   const c=document.getElementById('history-list'),keys=Object.keys(allDays).sort().reverse();
@@ -731,8 +825,15 @@ function getViewKey(){
   return d.toISOString().slice(0,10);
 }
 function shiftDay(dir){
+  // Save current state before navigating away
+  saveState();
+  // If returning to today, reload today's state from storage
+  const prevOffset=dayOffset;
   dayOffset+=dir;
-  if(dayOffset>0)dayOffset=0; // can't go into future
+  if(dayOffset>0)dayOffset=0;
+  if(dayOffset===0&&prevOffset!==0){
+    const s=lsGet('healthlog-today');if(s)state=s;
+  }
   updateDayNav();
   loadDayView();
 }
@@ -778,32 +879,19 @@ function loadDayView(){
   // Notes
   document.getElementById('day-notes').value=dayData&&dayData.notes?dayData.notes:'';
   // Exercises & meals
-  const savedExercises=state.exercises,savedMeals=state.meals;
-  if(!isToday){
-    state.exercises=dayData&&dayData.exercises?dayData.exercises:[];
-    state.meals=dayData&&dayData.meals?dayData.meals:[];
+  // For past days, load into state so edits work via normal handlers
+  if(!isToday&&dayData){
+    state=JSON.parse(JSON.stringify(dayData));
+  } else if(!isToday&&!dayData){
+    state={vitals:{},meals:[],exercises:[],water:0,sleepQ:null,feel:null,sleepMins:null,workoutTime:'',notes:''};
   }
   renderExercises();
   updateMacros();renderMeals();
-  if(!isToday){
-    state.exercises=savedExercises;
-    state.meals=savedMeals;
-  }
-  // Disable/enable inputs for past days
-  const inputs=document.querySelectorAll('#screen-vitals input,#screen-vitals textarea,#screen-vitals button.feel-btn,#screen-vitals .cup,#screen-lift input,#screen-lift .feel-btn,#screen-lift .rpe-btn,#screen-nutrition input,#screen-nutrition select');
-  inputs.forEach(el=>{
-    if(isToday){el.removeAttribute('disabled');}
-    else{el.setAttribute('disabled','true');}
-  });
-  document.querySelectorAll('#screen-lift button:not(.rpe-btn),#screen-nutrition button').forEach(el=>{
-    if(isToday){el.removeAttribute('disabled');}
-    else{el.setAttribute('disabled','true');}
-  });
-  // Show past day banner
+  // Show past day banner (editable)
   let banner=document.getElementById('past-day-banner');
   if(!isToday){
-    if(!banner){banner=document.createElement('div');banner.id='past-day-banner';banner.style.cssText='background:#f5f0e8;border:0.5px solid #e0d5c0;border-radius:8px;padding:9px 14px;font-size:12px;color:#8a7050;margin-bottom:12px;text-align:center';document.getElementById('screen-vitals').insertBefore(banner,document.getElementById('screen-vitals').firstChild);}
-    banner.textContent='Viewing past day — tap ‹ › to navigate';
+    if(!banner){banner=document.createElement('div');banner.id='past-day-banner';banner.style.cssText='background:#f0f5ff;border:0.5px solid #c0d0e8;border-radius:8px;padding:9px 14px;font-size:12px;color:#3a5080;margin-bottom:12px;text-align:center';document.getElementById('screen-vitals').insertBefore(banner,document.getElementById('screen-vitals').firstChild);}
+    banner.textContent='Editing — changes save automatically';
   } else {
     if(banner)banner.remove();
   }
@@ -856,13 +944,15 @@ function renderPRs(){
   c.innerHTML='';
   keys.forEach(k=>{
     const r=prs[k];
-    const row=document.createElement('div');row.className='pr-row';
+    const row=document.createElement('div');row.className='pr-row';row.style.cursor='pointer';
     row.innerHTML='<div><span class="pr-name">'+r.name+'</span></div>'
       +'<div style="display:flex;align-items:center">'
       +'<span class="pr-val">'+r.weight+' lbs x '+r.reps+'</span>'
       +'<span class="pr-badge">~'+r.est1rm+'lb 1RM</span>'
       +'<span class="pr-date">'+new Date(r.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})+'</span>'
+      +'<span style="font-size:11px;color:var(--text3);margin-left:8px">Edit</span>'
       +'</div>';
+    row.addEventListener('click',function(){editPR(k);});
     c.appendChild(row);
   });
 }
@@ -1094,6 +1184,9 @@ function getWeekDates(){const base=new Date();base.setDate(base.getDate()+weekOf
 function shiftWeek(dir){weekOffset+=dir;renderAnalytics();}
 function jumpToToday(){weekOffset=0;renderAnalytics();}
 function renderAnalytics(){
+  // Re-read from localStorage in case of stale state (e.g. service worker, mobile)
+  const freshDays=lsGet('healthlog-alldays');if(freshDays)allDays=freshDays;
+  const freshState=lsGet('healthlog-today');if(freshState)allDays[TODAY_KEY]=freshState;
   const dates=getWeekDates();
   if(Object.keys(allDays).includes(TODAY_KEY))allDays[TODAY_KEY]=state;
   const s0=new Date(dates[0]+'T12:00:00'),s6=new Date(dates[6]+'T12:00:00');
@@ -1247,7 +1340,7 @@ function showInsightsSheet(text){
   const ex=document.getElementById('insights-sheet');if(ex)ex.remove();
   const sheet=document.createElement('div');sheet.id='insights-sheet';sheet.className='insights-sheet';
   sheet.onclick=e=>{if(e.target===sheet)sheet.remove();};
-  sheet.innerHTML=`<div class="insights-inner"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font-size:15px;font-weight:600;color:var(--text)">Today's insights</span><button onclick="document.getElementById('insights-sheet').remove()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text3);font-family:var(--font);padding:0;line-height:1">x</button></div><div style="font-size:14px;color:var(--text2);line-height:1.75;white-space:pre-wrap">${text}</div></div>`;
+  sheet.innerHTML='<div class="insights-inner"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><span style="font-size:15px;font-weight:600;color:var(--text)">Today\'s insights</span><button onclick="document.getElementById(\'insights-sheet\').remove()" style="background:none;border:none;cursor:pointer;font-size:22px;color:var(--text3);font-family:var(--font);padding:0;line-height:1">x</button></div><div style="font-size:14px;color:var(--text2);line-height:1.75;white-space:pre-wrap">'+text.split('<').join('&lt;')+'</div></div>';
   document.body.appendChild(sheet);
 }
 init();
