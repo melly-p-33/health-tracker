@@ -205,14 +205,16 @@ textarea:focus{border-color:var(--border2)}
       </div>
     </div>
     <div class="section-label">Routine</div>
-    <div style="display:flex;flex-wrap:wrap;margin-bottom:14px">
+    <div style="display:flex;flex-wrap:wrap;margin-bottom:2px">
       <span class="tag active" onclick="loadRoutine('push',this)">Push</span>
       <span class="tag" onclick="loadRoutine('pull',this)">Pull</span>
       <span class="tag" onclick="loadRoutine('legs',this)">Legs</span>
       <span class="tag" onclick="loadRoutine('upper',this)">Upper</span>
-      <span class="tag" onclick="loadRoutine('full',this)">Full</span>
+      <span class="tag" onclick="loadRoutine('full',this)">Full body</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;margin-bottom:18px">
       <span class="tag" onclick="loadRoutine('custom',this)">+ Custom</span>
-      <span class="tag" onclick="loadFavExercises(this)" id="fav-ex-tag">&#9825;</span>
+      <span class="tag" onclick="loadFavExercises(this)" id="fav-ex-tag">&#9825; Favourites</span>
     </div>
     <div id="exercises-container"></div>
     <button class="btn" style="width:100%;margin-top:4px" onclick="addExercise()">+ Add exercise</button>
@@ -752,6 +754,9 @@ function deletePR(key,sheet){
 
 function removeMeal(i){state.meals.splice(i,1);updateMacros();renderMeals();saveState();}
 function renderHistory(){
+  // Always sync today before rendering
+  allDays[TODAY_KEY]=JSON.parse(JSON.stringify(state));
+  lsSet('healthlog-alldays',allDays);
   const c=document.getElementById('history-list'),keys=Object.keys(allDays).sort().reverse();
   if(!keys.length){c.innerHTML='<div class="empty-state">No past days logged yet.<br>Data saves automatically as you log.</div>';return;}
   c.innerHTML='';
@@ -887,7 +892,11 @@ function getViewKey(){
   return d.toISOString().slice(0,10);
 }
 function shiftDay(dir){
-  // Save current state before navigating away
+  // Always write current state back before moving
+  if(dayOffset===0){
+    allDays[TODAY_KEY]=JSON.parse(JSON.stringify(state));
+    lsSet('healthlog-today',state);
+  }
   saveState();
   const prevOffset=dayOffset;
   dayOffset+=dir;
@@ -1222,14 +1231,11 @@ function toggleFavExercise(ei,btn){
 function loadFavExercises(el){
   document.querySelectorAll('.tag').forEach(function(t){t.classList.remove('active');});
   el.classList.add('active');
-  if(!favExercises.length){showToast('No favourite exercises yet — tap ♡ on any exercise to save it');return;}
-  // Load favourites as exercises (preserve current if any, add missing)
-  var existing=(state.exercises||[]).map(function(e){return (e.name||'').toLowerCase();});
-  favExercises.forEach(function(name){
-    var display=name.charAt(0).toUpperCase()+name.slice(1);
-    if(existing.indexOf(name)<0){
-      state.exercises.push({name:display,sets:[{reps:'',weight:''}],rpe:''});
-    }
+  if(!favExercises.length){showToast('No favourites yet — tap ♥ on any exercise to save it');return;}
+  // Replace current exercises with favourites only
+  state.exercises=favExercises.map(function(name){
+    var display=name.split(' ').map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);}).join(' ');
+    return {name:display,sets:[{reps:'',weight:''}],rpe:''};
   });
   renderExercises();saveState();
 }
@@ -1270,9 +1276,9 @@ function renderPRs(){
     row.innerHTML='<div style="display:flex;align-items:center;gap:8px;width:100%">'
       +'<span class="pr-name">'+r.name+'</span>'
       +'<span class="pr-val" style="color:var(--text2)">'+r.weight+' lbs x '+r.reps+'</span>'
-      +'<span class="pr-badge">~'+r.est1rm+' 1RM</span>'
       +'</div>'
       +'<div style="display:flex;align-items:center;justify-content:space-between;width:100%">'
+      +'<span class="pr-badge">~'+r.est1rm+' 1RM</span>'
       +'<span class="pr-date">'+new Date(r.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})+'</span>'
       +'<span style="font-size:11px;color:var(--text3)">Edit</span>'
       +'</div>';
@@ -1382,6 +1388,8 @@ function loadTestData(overwrite){
 // ── Trainer weekly report ──────────────────────────────────────────────────
 function showTrainerReport(){
   // Flush current state to allDays before generating report
+  allDays[TODAY_KEY]=JSON.parse(JSON.stringify(state));
+  lsSet('healthlog-alldays',allDays);
   saveState();
   // Ensure analytics tab charts are rendered before capturing
   renderAnalytics();
@@ -1668,9 +1676,10 @@ function getWeekDates(){const base=new Date();base.setDate(base.getDate()+weekOf
 function shiftWeek(dir){weekOffset+=dir;renderAnalytics();}
 function jumpToToday(){weekOffset=0;renderAnalytics();}
 function renderAnalytics(){
-  // Re-read from localStorage in case of stale state (e.g. service worker, mobile)
+  // Re-read from localStorage and sync today
   const freshDays=lsGet('healthlog-alldays');if(freshDays)allDays=freshDays;
-  const freshState=lsGet('healthlog-today');if(freshState)allDays[TODAY_KEY]=freshState;
+  allDays[TODAY_KEY]=JSON.parse(JSON.stringify(state));
+  lsSet('healthlog-alldays',allDays);
   const dates=getWeekDates();
   if(Object.keys(allDays).includes(TODAY_KEY))allDays[TODAY_KEY]=state;
   const s0=new Date(dates[0]+'T12:00:00'),s6=new Date(dates[6]+'T12:00:00');
