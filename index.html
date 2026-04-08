@@ -354,10 +354,10 @@ textarea:focus{border-color:var(--border2)}
         <button class="btn btn-sm" onclick="window.location.reload(true)">Refresh</button>
       </div>
     </div>
-    <div class="section-label">Danger zone</div>
-    <div class="card">
+    <div class="section-label" style="color:#e5534b">Danger zone</div>
+    <div class="card" style="border-color:rgba(229,83,75,0.3)">
       <div class="backup-row" style="border:none">
-        <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">Clear all data</div><div class="backup-desc">Permanently deletes all logs.</div></div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500;color:#e5534b">Clear all data</div><div class="backup-desc" style="color:#e5534b;opacity:0.7">Permanently deletes all logs.</div></div>
         <button class="btn btn-sm btn-danger" onclick="clearAllData()">Clear</button>
       </div>
     </div>
@@ -1085,9 +1085,10 @@ ${summaryHtml}
 </table>
 </body></html>`;
 
-  const w=window.open('','_blank');
-  if(w){w.document.write(html);w.document.close();}
-  else{showToast('Allow popups to view report');}
+  // Open in same tab via blob URL - no popup permission needed
+  const blob=new Blob([html],{type:'text/html'});
+  const url=URL.createObjectURL(blob);
+  window.location.href=url;
 }
 function getWeekDates(){const base=new Date();base.setDate(base.getDate()+weekOffset*7);const day=base.getDay();const mon=new Date(base);mon.setDate(base.getDate()-day+1);const dates=[];for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);dates.push(d.toISOString().slice(0,10));}return dates;}
 function shiftWeek(dir){weekOffset+=dir;renderAnalytics();}
@@ -1104,36 +1105,71 @@ function renderAnalytics(){
   const feels=dates.map(d=>{const s=allDays[d];return s&&s.feel?s.feel:null;});
   const sleepQs=dates.map(d=>{const s=allDays[d];return s&&s.sleepQ?s.sleepQ:null;});
   const cals=dates.map(d=>{const s=allDays[d];return s&&s.meals?s.meals.reduce((a,m)=>a+m.cal,0)||null:null;});
-  const protPct=dates.map(d=>{const s=allDays[d];if(!s||!s.meals)return null;const v=s.meals.reduce((a,m)=>a+m.prot,0);return v||null;});
-  const carbPct=dates.map(d=>{const s=allDays[d];if(!s||!s.meals)return null;const v=s.meals.reduce((a,m)=>a+m.carb,0);return v||null;});
-  const fatPct=dates.map(d=>{const s=allDays[d];if(!s||!s.meals)return null;const v=s.meals.reduce((a,m)=>a+m.fat,0);return v||null;});
-  const isDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
-  const tc=isDark?'rgba(255,255,255,0.45)':'rgba(0,0,0,0.35)',gc=isDark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)',lc=isDark?'rgba(255,255,255,0.8)':'rgba(0,0,0,0.75)',l2=isDark?'rgba(255,255,255,0.35)':'rgba(0,0,0,0.3)';
-  const bo={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:4}}}};
-  const dot={pointRadius:4,tension:0.3,spanGaps:true};
+  const protG=dates.map(d=>{const s=allDays[d];if(!s||!s.meals)return null;const v=s.meals.reduce((a,m)=>a+m.prot,0);return v||null;});
+  const carbG=dates.map(d=>{const s=allDays[d];if(!s||!s.meals)return null;const v=s.meals.reduce((a,m)=>a+m.carb,0);return v||null;});
+  const fatG=dates.map(d=>{const s=allDays[d];if(!s||!s.meals)return null;const v=s.meals.reduce((a,m)=>a+m.fat,0);return v||null;});
+  const vols=dates.map(d=>{const s=allDays[d];return calcVolume(s);});
+  const tc='rgba(0,0,0,0.35)',gc='rgba(0,0,0,0.06)',lc='rgba(0,0,0,0.75)',l2='rgba(0,0,0,0.3)';
   if(typeof Chart==='undefined')return;
-  function mk(id,ds,ex={}){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id).getContext('2d'),{type:'line',data:{labels,datasets:ds},options:{...bo,...ex,plugins:{...bo.plugins,...(ex.plugins||{})},scales:{...bo.scales,...(ex.scales||{})}}});}
-  mk('chart-weight',[{data:weights,borderColor:lc,borderWidth:1.5,...dot,pointBackgroundColor:lc,fill:false}]);
-  mk('chart-sleep',[{data:sleepHrs,borderColor:lc,borderWidth:1.5,...dot,pointBackgroundColor:lc,fill:false}]);
-  mk('chart-feel',[{data:feels,borderColor:lc,borderWidth:1.5,...dot,pointBackgroundColor:lc,fill:false,label:'Feeling'},{data:sleepQs,borderColor:l2,borderWidth:1,pointRadius:3,pointBackgroundColor:l2,tension:0.3,spanGaps:true,fill:false,label:'Sleep quality',borderDash:[4,3]}],{plugins:{legend:{display:true,labels:{color:tc,font:{size:10},boxWidth:12,padding:8}}}});
-  mk('chart-cals',[{data:cals,borderColor:lc,borderWidth:1.5,...dot,pointBackgroundColor:lc,fill:false}]);
-  if(charts['chart-macros'])charts['chart-macros'].destroy();
-  charts['chart-macros']=new Chart(document.getElementById('chart-macros').getContext('2d'),{type:'bar',data:{labels,datasets:[{label:'Protein',data:protPct,backgroundColor:'#d4640acc',borderColor:'#d4640a',borderWidth:1,borderRadius:3},{label:'Carbs',data:carbPct,backgroundColor:'#2a7a3bcc',borderColor:'#2a7a3b',borderWidth:1,borderRadius:3},{label:'Fat',data:fatPct,backgroundColor:'#1a5fa8cc',borderColor:'#1a5fa8',borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y!=null?ctx.dataset.label+': '+ctx.parsed.y+'g':''}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:4},suggestedMax:110}}}});
-  // Macros vs goal % chart
+
+  // Shared axis/grid config — no spreads for Safari compatibility
+  function xAxis(){return {grid:{color:gc},ticks:{color:tc,font:{size:10}}};}
+  function yAxis(extra){
+    var t={color:tc,font:{size:10},maxTicksLimit:4};
+    if(extra&&extra.callback)t.callback=extra.callback;
+    return {grid:{color:gc},ticks:t,beginAtZero:extra&&extra.beginAtZero||false};
+  }
+  function lineOpts(extraPlugins,extraY){
+    return {responsive:true,maintainAspectRatio:false,plugins:extraPlugins||{legend:{display:false}},scales:{x:xAxis(),y:yAxis(extraY)}};
+  }
+  function lineDS(data,color,opts){
+    return {data:data,borderColor:color,borderWidth:1.5,pointRadius:4,tension:0.3,spanGaps:true,pointBackgroundColor:color,fill:false,label:opts&&opts.label||'',borderDash:opts&&opts.dash||[]};
+  }
+  function barOpts(tooltipFn,maxY){
+    return {responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:tooltipFn}}},scales:{x:xAxis(),y:{grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:4},suggestedMax:maxY||undefined}}};
+  }
+  function barDS(data,bg,border){
+    return {data:data,backgroundColor:bg,borderColor:border,borderWidth:1,borderRadius:3};
+  }
+  function mk(id,type,datasets,opts){
+    if(charts[id])charts[id].destroy();
+    var el=document.getElementById(id);
+    if(!el)return;
+    charts[id]=new Chart(el.getContext('2d'),{type:type,data:{labels:labels,datasets:datasets},options:opts});
+  }
+
+  mk('chart-weight','line',[lineDS(weights,lc)],lineOpts());
+  mk('chart-sleep','line',[lineDS(sleepHrs,lc)],lineOpts());
+  mk('chart-feel','line',[
+    lineDS(feels,lc,{label:'Feeling'}),
+    lineDS(sleepQs,l2,{label:'Sleep quality',dash:[4,3]})
+  ],{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:tc,font:{size:10},boxWidth:12,padding:8}}},scales:{x:xAxis(),y:yAxis()}});
+  mk('chart-cals','line',[lineDS(cals,lc)],lineOpts());
+  mk('chart-volume','line',[lineDS(vols,lc)],lineOpts(null,{beginAtZero:true,callback:function(v){if(v>=1000)return Math.round(v/1000*10)/10+'k';return v;}}));
+
+  // Macros grams bar chart
+  mk('chart-macros','bar',[
+    barDS(protG,'#d4640acc','#d4640a'),
+    barDS(carbG,'#2a7a3bcc','#2a7a3b'),
+    barDS(fatG,'#1a5fa8cc','#1a5fa8')
+  ],barOpts(function(ctx){return ctx.parsed.y!=null?ctx.dataset.label+': '+ctx.parsed.y+'g':'';},null));
+
+  // Macros % of goal chart
   const hasGoals=goals.prot||goals.carb||goals.fat;
   const emptyMsg=document.getElementById('chart-macros-pct-empty');
   const pctCanvas=document.getElementById('chart-macros-pct');
   if(!hasGoals){emptyMsg.style.display='block';pctCanvas.style.display='none';}
   else{
     emptyMsg.style.display='none';pctCanvas.style.display='block';
-    const protG=dates.map(d=>{const s=allDays[d];if(!s||!s.meals||!goals.prot)return null;return Math.round(s.meals.reduce((a,m)=>a+m.prot,0)/goals.prot*100);});
-    const carbG=dates.map(d=>{const s=allDays[d];if(!s||!s.meals||!goals.carb)return null;return Math.round(s.meals.reduce((a,m)=>a+m.carb,0)/goals.carb*100);});
-    const fatG=dates.map(d=>{const s=allDays[d];if(!s||!s.meals||!goals.fat)return null;return Math.round(s.meals.reduce((a,m)=>a+m.fat,0)/goals.fat*100);});
-    if(charts['chart-macros-pct'])charts['chart-macros-pct'].destroy();
-    charts['chart-macros-pct']=new Chart(pctCanvas.getContext('2d'),{type:'bar',data:{labels,datasets:[{label:'Protein',data:protG,backgroundColor:'#d4640acc',borderColor:'#d4640a',borderWidth:1,borderRadius:3},{label:'Carbs',data:carbG,backgroundColor:'#2a7a3bcc',borderColor:'#2a7a3b',borderWidth:1,borderRadius:3},{label:'Fat',data:fatG,backgroundColor:'#1a5fa8cc',borderColor:'#1a5fa8',borderWidth:1,borderRadius:3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y!=null?ctx.dataset.label+': '+ctx.parsed.y+'% of goal':''}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:4},suggestedMax:110}}}});
+    const protP=dates.map(d=>{const s=allDays[d];if(!s||!s.meals||!goals.prot)return null;return Math.round(s.meals.reduce((a,m)=>a+m.prot,0)/goals.prot*100);});
+    const carbP=dates.map(d=>{const s=allDays[d];if(!s||!s.meals||!goals.carb)return null;return Math.round(s.meals.reduce((a,m)=>a+m.carb,0)/goals.carb*100);});
+    const fatP=dates.map(d=>{const s=allDays[d];if(!s||!s.meals||!goals.fat)return null;return Math.round(s.meals.reduce((a,m)=>a+m.fat,0)/goals.fat*100);});
+    mk('chart-macros-pct','bar',[
+      barDS(protP,'#d4640acc','#d4640a'),
+      barDS(carbP,'#2a7a3bcc','#2a7a3b'),
+      barDS(fatP,'#1a5fa8cc','#1a5fa8')
+    ],barOpts(function(ctx){return ctx.parsed.y!=null?ctx.dataset.label+': '+ctx.parsed.y+'% of goal':'';},110));
   }
-  const vols=dates.map(d=>{const s=allDays[d];return calcVolume(s);});
-  mk('chart-volume',[{data:vols,borderColor:lc,borderWidth:1.5,...dot,pointBackgroundColor:lc,fill:false}],{scales:{...bo.scales,y:{...bo.scales.y,beginAtZero:true,ticks:{...bo.scales.y.ticks,callback:v=>{if(v>=1000)return(v/1000).toFixed(v%1000===0?0:1)+'k';return v;}}}}});
   renderCorrelations(dates);
 }
 function renderCorrelations(dates){
