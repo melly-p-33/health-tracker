@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="color-scheme" content="light">
-<meta name="apple-mobile-web-app-title" content="Health Log">
-<title>Health Log</title>
+<meta name="apple-mobile-web-app-title" content="Stack">
+<title>Stack</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#0e2a1a">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer onerror="var s=document.createElement('script');s.src='https://unpkg.com/chart.js@4.4.0/dist/chart.umd.min.js';document.head.appendChild(s)"></script>
 <style>
-:root{--bg:#ffffff;--bg2:#f5f5f3;--bg3:#efefed;--text:#1a1a1a;--text2:#6b6b67;--text3:#9b9b97;--border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);--radius:12px;--radius-sm:8px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--prot:#d4640a;--carb:#2a7a3b;--fat:#1a5fa8}
+:root{--bg:#ffffff;--bg2:#f5f5f3;--bg3:#efefed;--text:#1a1a1a;--text2:#3a3a38;--text3:#6b6b67;--border:rgba(0,0,0,0.18);--border2:rgba(0,0,0,0.3);--radius:12px;--radius-sm:8px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--prot:#d4640a;--carb:#2a7a3b;--fat:#1a5fa8}
 
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:var(--bg3);font-family:var(--font)}
@@ -103,6 +103,10 @@ input:focus,select:focus{border-color:var(--border2)}
 .insights-sheet{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.4);display:flex;align-items:flex-end;z-index:300;max-width:430px;margin:0 auto}
 textarea{background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius-sm);padding:9px 11px;font-size:14px;color:var(--text);width:100%;outline:none;font-family:var(--font);resize:none;line-height:1.5}
 textarea:focus{border-color:var(--border2)}
+
+.cardio-block{border:0.5px solid var(--border);border-radius:10px;padding:13px;margin-bottom:10px}
+.cardio-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.cardio-label{font-size:10px;color:var(--text3);margin-bottom:3px}
 .pr-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid var(--border)}
 .pr-row:last-child{border-bottom:none}
 .pr-name{font-size:13px;color:var(--text);font-weight:500}
@@ -205,6 +209,9 @@ textarea:focus{border-color:var(--border2)}
     </div>
     <div id="exercises-container"></div>
     <button class="btn" style="width:100%;margin-top:4px" onclick="addExercise()">+ Add exercise</button>
+    <div class="section-label" style="margin-top:22px">Cardio</div>
+    <div id="cardio-container"></div>
+    <button class="btn" style="width:100%;margin-top:4px" onclick="addCardio()">+ Add cardio</button>
   </div>
 
   <!-- NUTRITION -->
@@ -264,11 +271,11 @@ textarea:focus{border-color:var(--border2)}
   <!-- ANALYTICS -->
   <div id="screen-analytics" class="screen">
     <div class="week-nav">
-      <button onclick="shiftWeek(-1)">← Back</button>
+      <button onclick="shiftWeek(-1)">←</button>
       <span class="week-label" id="week-label">This week</span>
       <div style="display:flex;gap:6px;align-items:center">
         <button id="week-today-btn" onclick="jumpToToday()" style="display:none">Today</button>
-        <button onclick="shiftWeek(1)">Forward →</button>
+        <button onclick="shiftWeek(1)">→</button>
       </div>
     </div>
     <div class="section-label">Weight</div>
@@ -300,6 +307,11 @@ textarea:focus{border-color:var(--border2)}
     </div>
     <div class="section-label">Workout volume (lbs total)</div>
     <div class="card"><canvas id="chart-volume" class="chart-wrap" height="120"></canvas></div>
+    <div id="cardio-duration-section" style="display:none">
+      <div class="section-label">Cardio duration (mins)</div>
+      <div class="card"><canvas id="chart-cardio-duration" class="chart-wrap" height="120"></canvas></div>
+    </div>
+    <div id="cardio-activity-section" style="display:none"></div>
     <div class="section-label">Patterns</div>
     <div class="card" id="corr-panel"><div style="font-size:13px;color:var(--text3)">Log at least 3 days to see patterns.</div></div>
   </div>
@@ -308,12 +320,17 @@ textarea:focus{border-color:var(--border2)}
   <div id="screen-settings" class="screen">
     <div class="section-label">Macro goals</div>
     <div class="card">
-      <div class="goal-row"><span style="font-size:13px;color:var(--text2)">Calories</span><div class="row"><input type="number" id="goal-cal" placeholder="2000" style="width:80px;text-align:right" oninput="saveGoals()"><span style="font-size:12px;color:var(--text3)">kcal</span></div></div>
-      <div class="goal-row"><span style="font-size:13px;color:var(--prot)">Protein</span><div class="row"><input type="number" id="goal-prot" placeholder="150" style="width:80px;text-align:right" oninput="saveGoals()"><span style="font-size:12px;color:var(--prot)">g</span></div></div>
-      <div class="goal-row"><span style="font-size:13px;color:var(--carb)">Carbs</span><div class="row"><input type="number" id="goal-carb" placeholder="200" style="width:80px;text-align:right" oninput="saveGoals()"><span style="font-size:12px;color:var(--carb)">g</span></div></div>
-      <div class="goal-row"><span style="font-size:13px;color:var(--fat)">Fat</span><div class="row"><input type="number" id="goal-fat" placeholder="65" style="width:80px;text-align:right" oninput="saveGoals()"><span style="font-size:12px;color:var(--fat)">g</span></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><div style="font-size:11px;color:var(--text3);margin-bottom:4px">Calories</div><div class="row"><input type="number" id="goal-cal" placeholder="2000" style="text-align:left" oninput="saveGoals()"><span style="font-size:12px;color:var(--text3)">kcal</span></div></div>
+        <div><div style="font-size:11px;color:var(--prot);margin-bottom:4px">Protein</div><div class="row"><input type="number" id="goal-prot" placeholder="150" style="text-align:left" oninput="saveGoals()"><span style="font-size:12px;color:var(--prot)">g</span></div></div>
+        <div><div style="font-size:11px;color:var(--carb);margin-bottom:4px">Carbs</div><div class="row"><input type="number" id="goal-carb" placeholder="200" style="text-align:left" oninput="saveGoals()"><span style="font-size:12px;color:var(--carb)">g</span></div></div>
+        <div><div style="font-size:11px;color:var(--fat);margin-bottom:4px">Fat</div><div class="row"><input type="number" id="goal-fat" placeholder="65" style="text-align:left" oninput="saveGoals()"><span style="font-size:12px;color:var(--fat)">g</span></div></div>
+      </div>
       <div style="font-size:11px;color:var(--text3);margin-top:12px">Goals save automatically.</div>
     </div>
+    <div class="section-label">Data summary</div>
+    <div class="card" id="data-summary"><div style="font-size:13px;color:var(--text3)">No saved days yet.</div></div>
+
     <div class="section-label">AI insights</div>
     <div class="card">
       <div style="font-size:13px;color:var(--text2);margin-bottom:10px">Paste your Anthropic API key to enable insights when running locally.</div>
@@ -328,34 +345,29 @@ textarea:focus{border-color:var(--border2)}
         <button class="btn btn-sm" onclick="exportData()">Export</button>
       </div>
       <div class="backup-row">
-        <div class="backup-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
-        <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">Trainer weekly report</div><div class="backup-desc">Clean summary to share with your trainer</div></div>
-        <button class="btn btn-sm" onclick="showTrainerReport()">View</button>
-      </div>
-      <div class="backup-row">
         <div class="backup-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 14V6M5 9l3-3 3 3M2 5V4a2 2 0 012-2h8a2 2 0 012 2v1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
         <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">Import backup</div><div class="backup-desc">Restore from a JSON file</div></div>
         <label class="btn btn-sm" style="cursor:pointer">Import<input type="file" accept=".json" onchange="importData(this)" style="display:none"></label>
       </div>
-    </div>
-    <div class="section-label">Data summary</div>
-    <div class="card" id="data-summary"><div style="font-size:13px;color:var(--text3)">No saved days yet.</div></div>
-    <div class="section-label">Test data</div>
-    <div class="card">
-      <div class="backup-row" style="border:none">
-        <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">Load sample data</div><div class="backup-desc">Fills 14 days of realistic data. Use Reload to overwrite existing test days.</div></div>
-        <div style="display:flex;gap:6px"><button class="btn btn-sm" onclick="loadTestData(false)">Load</button><button class="btn btn-sm" onclick="loadTestData(true)">Reload</button></div>
+      <div class="backup-row">
+        <div class="backup-icon"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h8M2 12h10" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg></div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">Trainer weekly report</div><div class="backup-desc">Clean summary to share with your trainer</div></div>
+        <button class="btn btn-sm" onclick="showTrainerReport()">View</button>
       </div>
     </div>
     <div class="section-label">App</div>
     <div class="card">
       <div class="backup-row" style="border:none">
-        <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">Refresh app</div><div class="backup-desc">Force reload to get latest version</div></div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">Refresh app</div><div class="backup-desc">Force reload to get the latest version from GitHub. Data will stay in your app.</div></div>
         <button class="btn btn-sm" onclick="window.location.reload(true)">Refresh</button>
       </div>
     </div>
     <div class="section-label" style="color:#e5534b">Danger zone</div>
     <div class="card" style="border-color:rgba(229,83,75,0.3)">
+      <div class="backup-row">
+        <div style="flex:1"><div style="font-size:13px;font-weight:500;color:#e5534b">Overwrite with test data</div><div class="backup-desc" style="color:#e5534b;opacity:0.7">Replaces all data with 14 days of sample data.</div></div>
+        <button class="btn btn-sm btn-danger" onclick="loadTestData(true)">Overwrite</button>
+      </div>
       <div class="backup-row" style="border:none">
         <div style="flex:1"><div style="font-size:13px;font-weight:500;color:#e5534b">Clear all data</div><div class="backup-desc" style="color:#e5534b;opacity:0.7">Permanently deletes all logs.</div></div>
         <button class="btn btn-sm btn-danger" onclick="clearAllData()">Clear</button>
@@ -373,7 +385,7 @@ document.getElementById('today-date').textContent=new Date().toLocaleDateString(
 function nowTime(){const d=new Date();let h=d.getHours(),m=d.getMinutes(),ap=h>=12?'pm':'am';h=h%12||12;return h+':'+(m<10?'0'+m:m)+' '+ap;}
 document.getElementById('manual-time').value=nowTime();
 
-let state={vitals:{},meals:[],exercises:[],water:0,sleepQ:null,feel:null,sleepMins:null,workoutTime:'',notes:''};
+let state={vitals:{},meals:[],exercises:[],water:0,sleepQ:null,feel:null,sleepMins:null,workoutTime:'',notes:'',cardio:[]};
 let allDays={},weekOffset=0,dayOffset=0,charts={},goals={cal:0,prot:0,carb:0,fat:0},prs={};
 
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}}
@@ -460,6 +472,8 @@ function renderAll(){
     }
   }
   if(state.workoutTime)document.getElementById('workout-time').value=state.workoutTime;
+  if(!state.cardio)state.cardio=[];
+  renderCardio();
   if(state.notes)document.getElementById('day-notes').value=state.notes;
   state.water=state.water||0;renderWater();
   if(state.sleepQ)document.querySelectorAll('#sleep-quality-row .feel-btn')[state.sleepQ-1].classList.add('selected');
@@ -709,21 +723,35 @@ function renderHistory(){
   if(!keys.length){c.innerHTML='<div class="empty-state">No past days logged yet.<br>Data saves automatically as you log.</div>';return;}
   c.innerHTML='';
   keys.forEach(k=>{
-    const d=allDays[k],label=new Date(k+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+    const d=allDays[k];
+    // Only show days that have meaningful data logged
+    const hasWeight=d.vitals&&d.vitals.weight;
+    const hasSleep=d.sleepMins;
+    const hasMeals=d.meals&&d.meals.length;
+    const hasFeeling=d.feel;
+    const hasSteps=d.vitals&&d.vitals.steps;
+    const hasWater=d.water;
+    const hasNotes=d.notes&&d.notes.trim();
+    // Lifting: only counts if at least one set has reps entered
+    const hasLifting=d.exercises&&d.exercises.some(e=>e.name&&e.sets&&e.sets.some(s=>s.reps&&String(s.reps).trim()!==''));
+    const hasCardio=d.cardio&&d.cardio.some(function(cd){return cd.distance||cd.duration;});
+    if(!hasWeight&&!hasSleep&&!hasMeals&&!hasFeeling&&!hasSteps&&!hasWater&&!hasNotes&&!hasLifting&&!hasCardio)return;
+    const label=new Date(k+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
     const div=document.createElement('div');div.className='history-day';
     const tc=d.meals?d.meals.reduce((a,m)=>a+m.cal,0):0,tp=d.meals?d.meals.reduce((a,m)=>a+m.prot,0):0;
     const sh=d.sleepMins?Math.round(d.sleepMins/60*10)/10:'--';
     const chips=[];
-    if(d.vitals&&d.vitals.weight)chips.push(d.vitals.weight+' lbs');
+    if(hasWeight)chips.push(d.vitals.weight+' lbs');
     if(sh!=='--')chips.push(sh+'h sleep');
     if(d.sleepQ)chips.push('sleep Q: '+d.sleepQ+'/5');
-    if(d.feel)chips.push('feel: '+d.feel+'/5');
+    if(hasFeeling)chips.push('feel: '+d.feel+'/5');
     if(tc)chips.push(tc+' kcal');
     if(tp)chips.push(tp+'g protein');
-    if(d.vitals&&d.vitals.steps)chips.push(d.vitals.steps+' steps');
-    if(d.water)chips.push(d.water+' cups');
+    if(hasSteps)chips.push(d.vitals.steps+' steps');
+    if(hasWater)chips.push(d.water+' cups');
     if(d.workoutTime)chips.push('workout: '+d.workoutTime);
-    if(d.exercises&&d.exercises.length)chips.push(d.exercises.filter(e=>e.name).map(e=>e.name).join(', '));
+    if(hasLifting)chips.push(d.exercises.filter(e=>e.name&&e.sets&&e.sets.some(s=>s.reps&&String(s.reps).trim()!=='')).map(e=>e.name).join(', '));
+    if(d.cardio&&d.cardio.length)d.cardio.forEach(function(cd){if(cd.distance||cd.duration)chips.push(cd.type+(cd.distance?' '+cd.distance+'mi':'')+(cd.duration?' ('+cd.duration+')':''));});
     div.innerHTML=`<div class="history-date">${label}</div><div class="history-chips">${chips.map(ch=>`<span class="chip">${ch}</span>`).join('')}</div>`;
     c.appendChild(div);
   });
@@ -884,7 +912,7 @@ function loadDayView(){
   if(!isToday&&dayData){
     state=JSON.parse(JSON.stringify(dayData));
   } else if(!isToday&&!dayData){
-    state={vitals:{},meals:[],exercises:[],water:0,sleepQ:null,feel:null,sleepMins:null,workoutTime:'',notes:''};
+    state={vitals:{},meals:[],exercises:[],water:0,sleepQ:null,feel:null,sleepMins:null,workoutTime:'',notes:'',cardio:[]};
   }
   renderExercises();
   updateMacros();renderMeals();
@@ -916,6 +944,72 @@ function checkBackupReminder(){
 function dismissBackupReminder(){
   document.getElementById('backup-reminder').style.display='none';
   lsSet('healthlog-lastexport-dismissed',Date.now());
+}
+
+// ── Cardio ─────────────────────────────────────────────────────────────────
+function addCardio(){
+  if(!state.cardio)state.cardio=[];
+  state.cardio.push({type:'Run',distance:'',duration:'',effort:'',location:'',notes:''});
+  renderCardio();saveState();
+}
+function removeCardio(ci){
+  state.cardio.splice(ci,1);renderCardio();saveState();
+}
+function updateCardio(ci,key,val){
+  if(!state.cardio)state.cardio=[];
+  state.cardio[ci][key]=val;
+  if(key==='distance'||key==='duration')renderCardioPace(ci);
+  saveState();
+}
+function renderCardioPace(ci){
+  const c=state.cardio[ci];
+  const el=document.getElementById('cardio-pace-'+ci);
+  if(!el)return;
+  const dist=parseFloat(c.distance),dur=c.duration;
+  if(!dist||!dur){el.textContent='';return;}
+  // Parse duration: accepts "45", "45:30", "1:15:00"
+  const parts=dur.split(':').map(Number);
+  let mins=0;
+  if(parts.length===1)mins=parts[0];
+  else if(parts.length===2)mins=parts[0]+parts[1]/60;
+  else if(parts.length===3)mins=parts[0]*60+parts[1]+parts[2]/60;
+  if(!mins)return;
+  const pace=mins/dist;
+  const paceMin=Math.floor(pace),paceSec=Math.round((pace-paceMin)*60);
+  el.textContent=paceMin+':'+(paceSec<10?'0':'')+paceSec+' /mi';
+}
+function renderCardio(){
+  var c=document.getElementById('cardio-container');c.innerHTML='';
+  if(!state.cardio||!state.cardio.length)return;
+  var types=['Run','Bike','Swim','Row','Walk','Hike','Other'];
+  state.cardio.forEach(function(cd,ci){
+    var block=document.createElement('div');block.className='cardio-block';
+    var typeOpts=types.map(function(t){return '<option value="'+t+'"'+(cd.type===t?' selected':'')+'>'+t+'</option>';}).join('');
+    block.innerHTML=
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'
+      +'<select id="cardio-type-'+ci+'" style="font-weight:600;font-size:14px;flex:1">'+typeOpts+'</select>'
+      +'<button id="cardio-remove-'+ci+'" class="remove-btn" style="margin-left:8px;font-size:20px">x</button></div>'
+      +'<div class="cardio-grid">'
+      +'<div><div class="cardio-label">Distance (mi)</div><input id="cardio-dist-'+ci+'" type="number" step="0.1" placeholder="3.1" value="'+(cd.distance||'')+'"></div>'
+      +'<div><div class="cardio-label">Duration (mm:ss or mins)</div><input id="cardio-dur-'+ci+'" type="text" placeholder="45:00" value="'+(cd.duration||'')+'"></div>'
+      +'</div>'
+      +'<div style="margin-top:6px;font-size:12px;color:var(--text2);font-weight:500" id="cardio-pace-'+ci+'"></div>'
+      +'<div class="cardio-grid" style="margin-top:8px">'
+      +'<div><div class="cardio-label">Location</div><input id="cardio-loc-'+ci+'" type="text" placeholder="Crissy Field" value="'+(cd.location||'')+'"></div>'
+      +'<div><div class="cardio-label">Effort (RPE 1-10)</div><input id="cardio-eff-'+ci+'" type="number" min="1" max="10" placeholder="7" value="'+(cd.effort||'')+'"></div>'
+      +'</div>'
+      +'<div style="margin-top:8px"><div class="cardio-label">Notes</div><input id="cardio-notes-'+ci+'" type="text" placeholder="Easy recovery run..." value="'+(cd.notes||'')+'"></div>';
+    c.appendChild(block);
+    // Wire up events via addEventListener — no inline onclick/oninput needed
+    block.querySelector('#cardio-type-'+ci).addEventListener('change',function(){updateCardio(ci,'type',this.value);});
+    block.querySelector('#cardio-remove-'+ci).addEventListener('click',function(){removeCardio(ci);});
+    block.querySelector('#cardio-dist-'+ci).addEventListener('input',function(){updateCardio(ci,'distance',this.value);});
+    block.querySelector('#cardio-dur-'+ci).addEventListener('input',function(){updateCardio(ci,'duration',this.value);});
+    block.querySelector('#cardio-loc-'+ci).addEventListener('input',function(){updateCardio(ci,'location',this.value);});
+    block.querySelector('#cardio-eff-'+ci).addEventListener('input',function(){updateCardio(ci,'effort',this.value);});
+    block.querySelector('#cardio-notes-'+ci).addEventListener('input',function(){updateCardio(ci,'notes',this.value);});
+    setTimeout(function(){renderCardioPace(ci);},0);
+  });
 }
 // ── Notes ──────────────────────────────────────────────────────────────────
 function saveNotes(v){state.notes=v;saveState();}
@@ -1091,6 +1185,13 @@ function showTrainerReport(){
 
     // Exercises
     let exHtml='<span style="color:#999">Rest</span>';
+    if(d.cardio&&d.cardio.length&&d.cardio.some(function(cd){return cd.distance||cd.duration;})){
+      exHtml='';
+      d.cardio.forEach(function(cd){
+        if(!cd.distance&&!cd.duration)return;
+        exHtml+='<div style="margin-bottom:4px"><strong>'+cd.type+'</strong>'+(cd.location?' <span style="color:#888;font-size:11px">@ '+cd.location+'</span>':'')+'<br><span style="color:#666;font-size:11px">'+(cd.distance?cd.distance+'mi ':'')+(cd.duration?cd.duration+' ':'')+(cd.effort?'RPE '+cd.effort:'')+'</span>'+(cd.notes?'<br><span style="color:#888;font-size:11px">'+cd.notes+'</span>':'')+'</div>';
+      });
+    }
     if(d.exercises&&d.exercises.filter(e=>e.name).length){
       exHtml=d.exercises.filter(e=>e.name).map(ex=>{
         const sets=ex.sets.filter(s=>s.reps||s.weight);
@@ -1292,6 +1393,119 @@ function renderAnalytics(){
       barDS(fatP,'#1a5fa8cc','#1a5fa8')
     ],barOpts(function(ctx){return ctx.parsed.y!=null?ctx.dataset.label+': '+ctx.parsed.y+'% of goal':'';},110));
   }
+  // ── Cardio charts ──────────────────────────────────────────────────────
+  // Build cardio data across all visible dates (use full allDays not just week)
+  // Chart 1: daily cardio duration (all types combined)
+  const cardioDurData=dates.map(function(d){
+    var s=allDays[d];
+    if(!s||!s.cardio||!s.cardio.length)return null;
+    var totalMins=0;
+    s.cardio.forEach(function(cd){
+      if(!cd.duration)return;
+      var parts=cd.duration.split(':').map(Number);
+      var mins=0;
+      if(parts.length===1)mins=parts[0];
+      else if(parts.length===2)mins=parts[0]+parts[1]/60;
+      else if(parts.length===3)mins=parts[0]*60+parts[1]+parts[2]/60;
+      totalMins+=mins;
+    });
+    return totalMins||null;
+  });
+  var hasAnyCardio=cardioDurData.some(function(v){return v!==null;});
+  var durSec=document.getElementById('cardio-duration-section');
+  durSec.style.display=hasAnyCardio?'block':'none';
+  if(hasAnyCardio){
+    mk('chart-cardio-duration','line',[lineDS(cardioDurData,lc)],lineOpts());
+  }
+
+  // Chart 2+: per-activity distance & pace charts (only for types with 2+ entries with distance)
+  var actSection=document.getElementById('cardio-activity-section');
+  actSection.innerHTML='';
+  var actMap={};
+  // Collect all days in allDays (not just this week) for richer data
+  Object.keys(allDays).sort().forEach(function(dk){
+    var s=allDays[dk];
+    if(!s||!s.cardio)return;
+    s.cardio.forEach(function(cd){
+      if(!cd.distance||!cd.type)return;
+      var dist=parseFloat(cd.distance);if(!dist)return;
+      if(!actMap[cd.type])actMap[cd.type]=[];
+      // Calculate pace
+      var pace=null;
+      if(cd.duration){
+        var parts=cd.duration.split(':').map(Number);
+        var mins=0;
+        if(parts.length===1)mins=parts[0];
+        else if(parts.length===2)mins=parts[0]+parts[1]/60;
+        else if(parts.length===3)mins=parts[0]*60+parts[1]+parts[2]/60;
+        if(mins)pace=Math.round(dist/mins*60*10)/10;
+      }
+      actMap[cd.type].push({date:dk,dist:dist,pace:pace});
+    });
+  });
+  var actTypes=Object.keys(actMap).filter(function(t){return actMap[t].length>=2;});
+  actSection.style.display=actTypes.length?'block':'none';
+  actTypes.forEach(function(type){
+    var entries=actMap[type];
+    var actLabels=entries.map(function(e){return new Date(e.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});});
+    var distData=entries.map(function(e){return e.dist;});
+    var paceData=entries.map(function(e){return e.pace;});
+    var hasPace=paceData.some(function(v){return v!==null;});
+    // Create canvas
+    var canvasId='chart-cardio-'+type.toLowerCase();
+    var secDiv=document.createElement('div');
+    secDiv.innerHTML='<div class="section-label">'+type+' — distance & pace</div><div class="card"><canvas id="'+canvasId+'" class="chart-wrap" height="140"></canvas></div>';
+    actSection.appendChild(secDiv);
+    setTimeout(function(){
+      var el=document.getElementById(canvasId);
+      if(!el)return;
+      if(charts[canvasId])charts[canvasId].destroy();
+      var datasets=[{
+        label:'Distance (mi)',
+        data:distData,
+        borderColor:lc,
+        backgroundColor:'rgba(0,0,0,0.06)',
+        borderWidth:1.5,
+        pointRadius:4,
+        tension:0.3,
+        spanGaps:true,
+        pointBackgroundColor:lc,
+        fill:true,
+        yAxisID:'y'
+      }];
+      if(hasPace){
+        datasets.push({
+          label:'Speed (mph)',
+          data:paceData,
+          borderColor:'#d4640a',
+          borderWidth:1.5,
+          pointRadius:3,
+          tension:0.3,
+          spanGaps:true,
+          pointBackgroundColor:'#d4640a',
+          fill:false,
+          borderDash:[4,3],
+          yAxisID:'y2'
+        });
+      }
+      charts[canvasId]=new Chart(el.getContext('2d'),{
+        type:'line',
+        data:{labels:actLabels,datasets:datasets},
+        options:{
+          responsive:true,
+          maintainAspectRatio:false,
+          plugins:{
+            legend:{display:hasPace,labels:{color:tc,font:{size:10},boxWidth:12,padding:8}}
+          },
+          scales:{
+            x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},
+            y:{grid:{color:gc},ticks:{color:tc,font:{size:10},maxTicksLimit:4},position:'left'},
+            y2:hasPace?{grid:{display:false},ticks:{color:'#d4640a',font:{size:10},maxTicksLimit:4,callback:function(v){return v+'mph';}},position:'right'}:{display:false}
+          }
+        }
+      });
+    },0);
+  });
   renderCorrelations(dates);
 }
 function renderCorrelations(dates){
@@ -1357,7 +1571,7 @@ async function getInsights(){
   if(!apiKey){showToast('Add API key in Settings');btn.textContent='Insights ->';btn.disabled=false;return;}
   const s=state,rd=Object.entries(allDays).sort().slice(-7).map(([k,v])=>({date:k,...v}));
   const tot=s.meals?{cal:s.meals.reduce((a,m)=>a+m.cal,0),prot:s.meals.reduce((a,m)=>a+m.prot,0)}:{cal:0,prot:0};
-  const prompt=`You are a personal health and fitness coach. Give 3-4 specific actionable observations. Be direct.\n\nTODAY (${TODAY_KEY}):\n- Weight: ${s.vitals.weight||'not logged'} lbs\n- Sleep: ${s.sleepMins?Math.round(s.sleepMins/60*10)/10:'?'} hrs, quality: ${s.sleepQ||'?'}/5\n- Feeling: ${s.feel||'?'}/5\n- Water: ${s.water||0}/8 cups, Steps: ${s.vitals.steps||'?'}\n- Calories: ${tot.cal} kcal (goal: ${goals.cal||'not set'}), Protein: ${tot.prot}g (goal: ${goals.prot||'not set'}g)\n- Workout time: ${s.workoutTime||'not logged'}\n- Exercises: ${s.exercises&&s.exercises.length?s.exercises.filter(e=>e.name).map(e=>e.name+' ('+e.sets.length+' sets, RPE '+(e.rpe||'?')+')').join(', '):'rest day'}\n\nRECENT:\n${rd.map(d=>d.date+': weight '+(d.vitals&&d.vitals.weight?d.vitals.weight+'lbs':'?')+', sleep '+(d.sleepMins?Math.round(d.sleepMins/60*10)/10+'h':'?')+', feel '+(d.feel||'?')+'/5, workout '+(d.workoutTime||'?')+', '+(d.exercises&&d.exercises.length?d.exercises.filter(e=>e.name).map(e=>e.name).join('/'):'rest')).join('\n')}\n\nFocus on patterns, recovery, nutrition, and performance. Short numbered list.`;
+  const prompt=`You are a supportive personal health and fitness coach. Give 3-4 specific, actionable observations in a encouraging but realistic tone. Be conversational and constructive — highlight what's going well alongside any areas to improve. Avoid alarming language.\n\nTODAY (${TODAY_KEY}):\n- Weight: ${s.vitals.weight||'not logged'} lbs\n- Sleep: ${s.sleepMins?Math.round(s.sleepMins/60*10)/10:'?'} hrs, quality: ${s.sleepQ||'?'}/5\n- Feeling: ${s.feel||'?'}/5\n- Water: ${s.water||0}/8 cups, Steps: ${s.vitals.steps||'?'}\n- Calories: ${tot.cal} kcal (goal: ${goals.cal||'not set'}), Protein: ${tot.prot}g (goal: ${goals.prot||'not set'}g)\n- Workout time: ${s.workoutTime||'not logged'}\n- Exercises: ${s.exercises&&s.exercises.length?s.exercises.filter(e=>e.name).map(e=>e.name+' ('+e.sets.length+' sets, RPE '+(e.rpe||'?')+')').join(', '):'rest day'}\n\nRECENT:\n${rd.map(d=>d.date+': weight '+(d.vitals&&d.vitals.weight?d.vitals.weight+'lbs':'?')+', sleep '+(d.sleepMins?Math.round(d.sleepMins/60*10)/10+'h':'?')+', feel '+(d.feel||'?')+'/5, workout '+(d.workoutTime||'?')+', '+(d.exercises&&d.exercises.length?d.exercises.filter(e=>e.name).map(e=>e.name).join('/'):'rest')).join('\n')}\n\nFocus on patterns, recovery, nutrition, and performance. Short numbered list.`;
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
     const data=await res.json();
@@ -1373,6 +1587,23 @@ function showInsightsSheet(text){
   document.body.appendChild(sheet);
 }
 init();
+
+// ── Nav drag-to-scroll (desktop) ───────────────────────────────────────────
+(function(){
+  var nav=document.querySelector('.nav');
+  var isDown=false,startX,scrollLeft;
+  nav.addEventListener('mousedown',function(e){
+    isDown=true;nav.style.cursor='grabbing';
+    startX=e.pageX-nav.offsetLeft;scrollLeft=nav.scrollLeft;
+  });
+  nav.addEventListener('mouseleave',function(){isDown=false;nav.style.cursor='';});
+  nav.addEventListener('mouseup',function(){isDown=false;nav.style.cursor='';});
+  nav.addEventListener('mousemove',function(e){
+    if(!isDown)return;e.preventDefault();
+    var x=e.pageX-nav.offsetLeft;
+    nav.scrollLeft=scrollLeft-(x-startX);
+  });
+})();
 </script>
 
 <div id="update-banner" style="display:none;position:fixed;top:0;left:0;right:0;background:#1a1a1a;color:#fff;font-size:13px;padding:12px 16px;display:none;align-items:center;justify-content:space-between;z-index:999;max-width:430px;margin:0 auto">

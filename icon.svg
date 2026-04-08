@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="112" fill="#0e2a1a"/>
+  <!-- bar centered: y=256, bar y=250 h=22, x=90 to x=422 -->
+  <rect x="90" y="250" width="332" height="22" rx="11" fill="#ffffff"/>
+  <!-- left outer plate: w=50, h=148 centered on y=261 -->
+  <rect x="90" y="187" width="50" height="148" rx="14" fill="#ffffff"/>
+  <!-- left inner plate: w=32, h=106 -->
+  <rect x="142" y="208" width="32" height="106" rx="9" fill="#7ecfa0"/>
+  <!-- right inner plate -->
+  <rect x="338" y="208" width="32" height="106" rx="9" fill="#7ecfa0"/>
+  <!-- right outer plate -->
+  <rect x="372" y="187" width="50" height="148" rx="14" fill="#ffffff"/>
+  <!-- STACK label -->
+  <text x="256" y="420" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-weight="600" font-size="72" letter-spacing="14" text-anchor="middle" fill="#ffffff">STACK</text>
+</svg>
