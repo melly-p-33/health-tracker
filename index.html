@@ -7,6 +7,9 @@
 <meta name="color-scheme" content="light">
 <meta name="apple-mobile-web-app-title" content="Health Log">
 <title>Health Log</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
 :root{--bg:#ffffff;--bg2:#f5f5f3;--bg3:#efefed;--text:#1a1a1a;--text2:#6b6b67;--text3:#9b9b97;--border:rgba(0,0,0,0.1);--border2:rgba(0,0,0,0.18);--radius:12px;--radius-sm:8px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--prot:#d4640a;--carb:#2a7a3b;--fat:#1a5fa8}
@@ -124,6 +127,11 @@ textarea:focus{border-color:var(--border2)}
       <div class="topbar-title">Today</div>
     </div>
     <button class="btn btn-sm btn-primary" id="insights-btn" onclick="getInsights()">Insights ↗</button>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 20px 0">
+    <button onclick="shiftDay(-1)" style="background:none;border:none;font-size:20px;color:var(--text2);cursor:pointer;padding:4px 8px;font-family:var(--font)">&#8249;</button>
+    <span id="day-nav-label" style="font-size:13px;font-weight:500;color:var(--text2)">Today</span>
+    <button onclick="shiftDay(1)" id="day-nav-forward" style="background:none;border:none;font-size:20px;color:var(--text2);cursor:pointer;padding:4px 8px;font-family:var(--font)">&#8250;</button>
   </div>
   <div class="nav">
     <button class="nav-btn active" onclick="showScreen('vitals',this)">Vitals</button>
@@ -334,6 +342,13 @@ textarea:focus{border-color:var(--border2)}
         <div style="display:flex;gap:6px"><button class="btn btn-sm" onclick="loadTestData(false)">Load</button><button class="btn btn-sm" onclick="loadTestData(true)">Reload</button></div>
       </div>
     </div>
+    <div class="section-label">App</div>
+    <div class="card">
+      <div class="backup-row" style="border:none">
+        <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--text)">Refresh app</div><div class="backup-desc">Force reload to get latest version</div></div>
+        <button class="btn btn-sm" onclick="window.location.reload(true)">Refresh</button>
+      </div>
+    </div>
     <div class="section-label">Danger zone</div>
     <div class="card">
       <div class="backup-row" style="border:none">
@@ -353,7 +368,7 @@ function nowTime(){const d=new Date();let h=d.getHours(),m=d.getMinutes(),ap=h>=
 document.getElementById('manual-time').value=nowTime();
 
 let state={vitals:{},meals:[],exercises:[],water:0,sleepQ:null,feel:null,sleepMins:null,workoutTime:'',notes:''};
-let allDays={},weekOffset=0,charts={},goals={cal:0,prot:0,carb:0,fat:0},prs={};
+let allDays={},weekOffset=0,dayOffset=0,charts={},goals={cal:0,prot:0,carb:0,fat:0},prs={};
 
 function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){return null;}}
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
@@ -365,7 +380,7 @@ function init(){
   const k=lsGet('healthlog-apikey');if(k)document.getElementById('api-key-input').value=k;
   const p=lsGet('healthlog-prs');if(p)prs=p;
   loadFoodLists();
-  renderAll();renderHistory();renderDataSummary();renderGoalInputs();setTimeout(renderAnalytics,100);setTimeout(checkBackupReminder,2000);
+  renderAll();renderHistory();renderDataSummary();renderGoalInputs();setTimeout(renderAnalytics,100);setTimeout(checkBackupReminder,2000);updateDayNav();
 }
 function saveState(){lsSet('healthlog-today',state);allDays[TODAY_KEY]=JSON.parse(JSON.stringify(state));lsSet('healthlog-alldays',allDays);}
 function saveApiKey(v){lsSet('healthlog-apikey',v);}
@@ -697,6 +712,91 @@ function addQuickFood(idx,fromFav){
   showToast(f.name+' added');
 }
 
+
+// ── Day navigation ──────────────────────────────────────────────────────────
+function getViewKey(){
+  if(dayOffset===0)return TODAY_KEY;
+  const d=new Date();d.setDate(d.getDate()+dayOffset);
+  return d.toISOString().slice(0,10);
+}
+function shiftDay(dir){
+  dayOffset+=dir;
+  if(dayOffset>0)dayOffset=0; // can't go into future
+  updateDayNav();
+  loadDayView();
+}
+function updateDayNav(){
+  const fwd=document.getElementById('day-nav-forward');
+  const label=document.getElementById('day-nav-label');
+  fwd.style.opacity=dayOffset===0?'0.25':'1';
+  fwd.style.pointerEvents=dayOffset===0?'none':'auto';
+  if(dayOffset===0){
+    label.textContent='Today';
+  } else if(dayOffset===-1){
+    label.textContent='Yesterday';
+  } else {
+    const d=new Date();d.setDate(d.getDate()+dayOffset);
+    label.textContent=d.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'});
+  }
+}
+function loadDayView(){
+  const key=getViewKey();
+  const isToday=key===TODAY_KEY;
+  // Load the day's data into the view state (read-only for past days)
+  const dayData=isToday?state:(allDays[key]||null);
+  // Update topbar title
+  document.querySelector('.topbar-title').textContent=isToday?'Today':'Viewing';
+  // Render vitals
+  const vw=dayData&&dayData.vitals?dayData.vitals:{};
+  document.getElementById('weight-val').value=vw.weight||'';
+  document.getElementById('steps-val').value=vw.steps||'';
+  document.getElementById('sleep-bed').value=vw.bedtime||'';
+  document.getElementById('sleep-wake').value=vw.wake||'';
+  calcSleep();
+  // Sleep quality
+  document.querySelectorAll('#sleep-quality-row .feel-btn').forEach(b=>b.classList.remove('selected'));
+  if(dayData&&dayData.sleepQ)document.querySelectorAll('#sleep-quality-row .feel-btn')[dayData.sleepQ-1].classList.add('selected');
+  // Feeling
+  document.querySelectorAll('#feel-row .feel-btn').forEach(b=>b.classList.remove('selected'));
+  if(dayData&&dayData.feel)document.querySelectorAll('#feel-row .feel-btn')[dayData.feel-1].classList.add('selected');
+  // Water
+  const ws=dayData&&dayData.water!=null?dayData.water:0;
+  if(isToday){state.water=ws;}else{const tmp=state.water;state.water=ws;renderWater();state.water=tmp;renderWater();}
+  // Workout time
+  document.getElementById('workout-time').value=dayData&&dayData.workoutTime?dayData.workoutTime:'';
+  // Notes
+  document.getElementById('day-notes').value=dayData&&dayData.notes?dayData.notes:'';
+  // Exercises & meals
+  const savedExercises=state.exercises,savedMeals=state.meals;
+  if(!isToday){
+    state.exercises=dayData&&dayData.exercises?dayData.exercises:[];
+    state.meals=dayData&&dayData.meals?dayData.meals:[];
+  }
+  renderExercises();
+  updateMacros();renderMeals();
+  if(!isToday){
+    state.exercises=savedExercises;
+    state.meals=savedMeals;
+  }
+  // Disable/enable inputs for past days
+  const inputs=document.querySelectorAll('#screen-vitals input,#screen-vitals textarea,#screen-vitals button.feel-btn,#screen-vitals .cup,#screen-lift input,#screen-lift .feel-btn,#screen-lift .rpe-btn,#screen-nutrition input,#screen-nutrition select');
+  inputs.forEach(el=>{
+    if(isToday){el.removeAttribute('disabled');}
+    else{el.setAttribute('disabled','true');}
+  });
+  document.querySelectorAll('#screen-lift button:not(.rpe-btn),#screen-nutrition button').forEach(el=>{
+    if(isToday){el.removeAttribute('disabled');}
+    else{el.setAttribute('disabled','true');}
+  });
+  // Show past day banner
+  let banner=document.getElementById('past-day-banner');
+  if(!isToday){
+    if(!banner){banner=document.createElement('div');banner.id='past-day-banner';banner.style.cssText='background:#f5f0e8;border:0.5px solid #e0d5c0;border-radius:8px;padding:9px 14px;font-size:12px;color:#8a7050;margin-bottom:12px;text-align:center';document.getElementById('screen-vitals').insertBefore(banner,document.getElementById('screen-vitals').firstChild);}
+    banner.textContent='Viewing past day — tap ‹ › to navigate';
+  } else {
+    if(banner)banner.remove();
+  }
+}
 // ── Backup reminder ────────────────────────────────────────────────────────
 function checkBackupReminder(){
   const lastExport=lsGet('healthlog-lastexport');
@@ -978,6 +1078,30 @@ function showInsightsSheet(text){
   document.body.appendChild(sheet);
 }
 init();
+</script>
+
+<div id="update-banner" style="display:none;position:fixed;top:0;left:0;right:0;background:#1a1a1a;color:#fff;font-size:13px;padding:12px 16px;display:none;align-items:center;justify-content:space-between;z-index:999;max-width:430px;margin:0 auto">
+  <span>Update available</span>
+  <button onclick="applyUpdate()" style="background:#fff;color:#1a1a1a;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">Refresh</button>
+</div>
+<script>
+let newWorker;
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    reg.addEventListener('updatefound',()=>{
+      newWorker=reg.installing;
+      newWorker.addEventListener('statechange',()=>{
+        if(newWorker.state==='installed'&&navigator.serviceWorker.controller){
+          document.getElementById('update-banner').style.display='flex';
+        }
+      });
+    });
+  });
+  navigator.serviceWorker.addEventListener('controllerchange',()=>window.location.reload());
+}
+function applyUpdate(){
+  if(newWorker)newWorker.postMessage({action:'skipWaiting'});
+}
 </script>
 </body>
 </html>
