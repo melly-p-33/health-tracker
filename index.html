@@ -24,9 +24,8 @@ body{display:flex;justify-content:center;min-height:100vh}
 .topbar-title{font-size:22px;font-weight:600;color:var(--text);margin-top:2px}
 .nav{display:flex;border-bottom:0.5px solid var(--border);margin-top:16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
 .nav::-webkit-scrollbar{display:none}
-.nav-hint{text-align:center;font-size:10px;color:var(--text3);padding:4px 0;background:var(--bg)}
 .nav-btn{flex-shrink:0;padding:10px 14px;font-size:12px;font-weight:500;color:var(--text3);background:none;border:none;cursor:pointer;letter-spacing:0.02em;border-bottom:1.5px solid transparent;margin-bottom:-0.5px;font-family:var(--font);white-space:nowrap;transition:color 0.15s}
-.nav-btn.active{color:var(--text);border-bottom-color:var(--text)}
+.nav-btn.active{color:var(--text);border-bottom:2.5px solid var(--text);font-weight:600}
 .screen{display:none;flex:1;overflow-y:auto;padding:20px;-webkit-overflow-scrolling:touch}
 .screen.active{display:block}
 .section-label{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:10px;margin-top:22px}
@@ -140,15 +139,14 @@ textarea:focus{border-color:var(--border2)}
   </div>
   <div class="nav">
     <button class="nav-btn active" onclick="showScreen('vitals',this)">Vitals</button>
-    <button class="nav-btn" onclick="showScreen('lift',this)">Lifting</button>
     <button class="nav-btn" onclick="showScreen('nutrition',this)">Nutrition</button>
+    <button class="nav-btn" onclick="showScreen('lift',this)">Workouts</button>
     <button class="nav-btn" onclick="showScreen('prs',this)">PRs</button>
     <button class="nav-btn" onclick="showScreen('history',this)">History</button>
     <button class="nav-btn" onclick="showScreen('analytics',this)">Analytics</button>
-    <button class="nav-btn" onclick="showScreen('settings',this)">Settings</button>
+    <button class="nav-btn" onclick="showScreen('settings',this)" style="font-size:20px;padding:6px 12px">⚙︎</button>
   </div>
-  <div class="nav-hint">← swipe tabs →</div>
-
+  
   <!-- VITALS -->
   <div id="screen-vitals" class="screen active">
     <div class="section-label">Body</div>
@@ -334,9 +332,12 @@ textarea:focus{border-color:var(--border2)}
 
     <div class="section-label">AI insights</div>
     <div class="card">
-      <div style="font-size:13px;color:var(--text2);margin-bottom:10px">Paste your Anthropic API key to enable insights when running locally.</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px">Paste your Anthropic API key to enable insights.</div>
       <input type="text" id="api-key-input" placeholder="sk-ant-..." style="margin-bottom:8px" oninput="saveApiKey(this.value)">
-      <div style="font-size:11px;color:var(--text3)">Stored locally only. Never sent anywhere except Anthropic's API.</div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:12px">Stored locally only. Never sent anywhere except Anthropic's API.</div>
+      <div class="divider"></div>
+      <div style="font-size:12px;font-weight:500;color:var(--text2);margin-top:12px;margin-bottom:4px">Usage</div>
+      <div id="api-usage-display" style="font-size:13px;color:var(--text3)">No insights used yet.</div>
     </div>
     <div class="section-label">Backup & restore</div>
     <div class="card">
@@ -399,7 +400,7 @@ function init(){
   const k=lsGet('healthlog-apikey');if(k)document.getElementById('api-key-input').value=k;
   const p=lsGet('healthlog-prs');if(p)prs=p;
   loadFoodLists();
-  renderAll();renderHistory();renderDataSummary();renderGoalInputs();setTimeout(()=>{if(typeof Chart!=="undefined")renderAnalytics();else{const w=setInterval(()=>{if(typeof Chart!=="undefined"){clearInterval(w);renderAnalytics();}},200);}},800);setTimeout(checkBackupReminder,2000);updateDayNav();
+  renderAll();renderHistory();renderDataSummary();renderGoalInputs();renderApiUsage();setTimeout(()=>{if(typeof Chart!=="undefined")renderAnalytics();else{const w=setInterval(()=>{if(typeof Chart!=="undefined"){clearInterval(w);renderAnalytics();}},200);}},800);setTimeout(checkBackupReminder,2000);updateDayNav();
 }
 function saveState(){
   const key=typeof dayOffset!=='undefined'&&dayOffset!==0?getViewKey():TODAY_KEY;
@@ -494,7 +495,7 @@ function showScreen(id,btn){
   }
   if(id==='prs'){renderPRs();checkForNewPRs();}
   if(id==='history')renderHistory();
-  if(id==='settings'){renderDataSummary();renderGoalInputs();}
+  if(id==='settings'){renderDataSummary();renderGoalInputs();renderApiUsage();}
 }
 function saveVital(key,val){state.vitals[key]=val;saveState();}
 function saveWorkoutTime(val){state.workoutTime=val;saveState();}
@@ -735,7 +736,7 @@ function renderHistory(){
     const hasSteps=d.vitals&&d.vitals.steps;
     const hasWater=d.water;
     const hasNotes=d.notes&&d.notes.trim();
-    // Lifting: only counts if at least one set has reps entered
+    // Workouts: only counts if at least one set has reps entered
     const hasLifting=d.exercises&&d.exercises.some(e=>e.name&&e.sets&&e.sets.some(s=>s.reps&&String(s.reps).trim()!==''));
     const hasCardio=d.cardio&&d.cardio.some(function(cd){return cd.distance||cd.duration;});
     if(!hasWeight&&!hasSleep&&!hasMeals&&!hasFeeling&&!hasSteps&&!hasWater&&!hasNotes&&!hasLifting&&!hasCardio)return;
@@ -746,15 +747,15 @@ function renderHistory(){
     const chips=[];
     if(hasWeight)chips.push(d.vitals.weight+' lbs');
     if(sh!=='--')chips.push(sh+'h sleep');
-    if(d.sleepQ)chips.push('sleep Q: '+d.sleepQ+'/5');
-    if(hasFeeling)chips.push('feel: '+d.feel+'/5');
+    if(d.sleepQ)chips.push('Sleep Q: '+d.sleepQ+'/5');
+    if(hasFeeling)chips.push('Feel: '+d.feel+'/5');
     if(tc)chips.push(tc+' kcal');
     if(tp)chips.push(tp+'g protein');
     if(hasSteps)chips.push(d.vitals.steps+' steps');
     if(hasWater)chips.push(d.water+' cups');
     if(d.workoutTime)chips.push('workout: '+d.workoutTime);
     if(hasLifting)chips.push(d.exercises.filter(e=>e.name&&e.sets&&e.sets.some(s=>s.reps&&String(s.reps).trim()!=='')).map(e=>e.name).join(', '));
-    if(d.cardio&&d.cardio.length)d.cardio.forEach(function(cd){if(cd.distance||cd.duration)chips.push(cd.type+(cd.distance?' '+cd.distance+'mi':'')+(cd.duration?' ('+cd.duration+')':''));});
+    if(d.cardio&&d.cardio.length)d.cardio.forEach(function(cd){if(cd.distance||cd.duration)chips.push(cd.type+(cd.distance?' '+cd.distance+'mi':'')+(cd.duration?' ('+cd.duration+')':'')+(cd.time?' @ '+cd.time:''));});
     div.innerHTML=`<div class="history-date">${label}</div><div class="history-chips">${chips.map(ch=>`<span class="chip">${ch}</span>`).join('')}</div>`;
     c.appendChild(div);
   });
@@ -950,9 +951,32 @@ function dismissBackupReminder(){
 }
 
 // ── Cardio ─────────────────────────────────────────────────────────────────
+
+function timeToHHMM(t){
+  if(!t)return '';
+  var lower=t.trim().toLowerCase();
+  var colon=lower.indexOf(':');
+  if(colon<0)return '';
+  var h=parseInt(lower.substring(0,colon));
+  var rest=lower.substring(colon+1);
+  var m=parseInt(rest);
+  var pm=rest.indexOf('pm')>=0;
+  var am=rest.indexOf('am')>=0;
+  if(pm&&h!==12)h+=12;
+  if(am&&h===12)h=0;
+  return (h<10?'0'+h:h)+':'+(m<10?'0'+m:m);
+}
+function hhmmToTime(hhmm){
+  if(!hhmm)return '';
+  var parts=hhmm.split(':');
+  var h=parseInt(parts[0]),m=parseInt(parts[1]||0);
+  var ap=h>=12?'pm':'am';
+  var h12=h%12||12;
+  return h12+':'+(m<10?'0'+m:m)+' '+ap;
+}
 function addCardio(){
   if(!state.cardio)state.cardio=[];
-  state.cardio.push({type:'Run',distance:'',duration:'',effort:'',location:'',notes:''});
+  state.cardio.push({type:'Run',distance:'',duration:'',effort:'',location:'',notes:'',time:nowTime()});
   renderCardio();saveState();
 }
 function removeCardio(ci){
@@ -964,22 +988,54 @@ function updateCardio(ci,key,val){
   if(key==='distance'||key==='duration')renderCardioPace(ci);
   saveState();
 }
+function parseDurMins(dur){
+  if(!dur)return 0;
+  var s=dur.trim();
+  // Accepts: "45", "45m", "1:30", "1h30", "1h30m", "1:30:00", "1h 30m 15s"
+  // Strip and parse h/m/s labels
+  if(/[hms]/i.test(s)){
+    var h=0,m=0,sec=0;
+    var hm=s.match(/(\d+)\s*h/i);if(hm)h=parseInt(hm[1]);
+    var mm=s.match(/(\d+)\s*m(?!s)/i);if(mm)m=parseInt(mm[1]);
+    var sm=s.match(/(\d+)\s*s/i);if(sm)sec=parseInt(sm[1]);
+    return h*60+m+sec/60;
+  }
+  var parts=s.split(':').map(Number);
+  if(parts.length===1)return parts[0]||0;
+  if(parts.length===2)return (parts[0]||0)+(parts[1]||0)/60;
+  if(parts.length===3)return (parts[0]||0)*60+(parts[1]||0)+(parts[2]||0)/60;
+  return 0;
+}
+function formatDur(dur){
+  var mins=parseDurMins(dur);
+  if(!mins)return dur;
+  var totalSec=Math.round(mins*60);
+  var h=Math.floor(totalSec/3600);
+  var m=Math.floor((totalSec%3600)/60);
+  var s=totalSec%60;
+  if(h>0)return h+'h '+m+'m'+(s?' '+s+'s':'');
+  if(m>0)return m+'m'+(s?' '+s+'s':'');
+  return s+'s';
+}
 function renderCardioPace(ci){
-  const c=state.cardio[ci];
-  const el=document.getElementById('cardio-pace-'+ci);
+  var c=state.cardio[ci];
+  var el=document.getElementById('cardio-pace-'+ci);
   if(!el)return;
-  const dist=parseFloat(c.distance),dur=c.duration;
-  if(!dist||!dur){el.textContent='';return;}
-  // Parse duration: accepts "45", "45:30", "1:15:00"
-  const parts=dur.split(':').map(Number);
-  let mins=0;
-  if(parts.length===1)mins=parts[0];
-  else if(parts.length===2)mins=parts[0]+parts[1]/60;
-  else if(parts.length===3)mins=parts[0]*60+parts[1]+parts[2]/60;
-  if(!mins)return;
-  const pace=mins/dist;
-  const paceMin=Math.floor(pace),paceSec=Math.round((pace-paceMin)*60);
-  el.textContent=paceMin+':'+(paceSec<10?'0':'')+paceSec+' /mi';
+  var distInput=document.getElementById('cardio-dist-'+ci);
+  var durInput=document.getElementById('cardio-dur-'+ci);
+  var distVal=distInput?distInput.value:c.distance;
+  var durVal=durInput?durInput.value:c.duration;
+  var dist=parseFloat(distVal);
+  var dur=String(durVal||'').trim();
+  if(!dist||!dur){el.innerHTML='';return;}
+  var mins=parseDurMins(dur);
+  if(!mins){el.innerHTML='';return;}
+  var mph=Math.round(dist/mins*60*10)/10;
+  var paceDecimal=mins/dist;
+  var paceMin=Math.floor(paceDecimal);
+  var paceSec=Math.round((paceDecimal-paceMin)*60);
+  var paceStr=paceMin+':'+(paceSec<10?'0':'')+paceSec+' /mi';
+  el.innerHTML='<strong>'+paceStr+'</strong> <span style="color:var(--text3);font-weight:400">'+mph+' mph</span>';
 }
 function renderCardio(){
   var c=document.getElementById('cardio-container');c.innerHTML='';
@@ -994,14 +1050,15 @@ function renderCardio(){
       +'<button id="cardio-remove-'+ci+'" class="remove-btn" style="margin-left:8px;font-size:20px">x</button></div>'
       +'<div class="cardio-grid">'
       +'<div><div class="cardio-label">Distance (mi)</div><input id="cardio-dist-'+ci+'" type="number" step="0.1" placeholder="3.1" value="'+(cd.distance||'')+'"></div>'
-      +'<div><div class="cardio-label">Duration (mm:ss or mins)</div><input id="cardio-dur-'+ci+'" type="text" placeholder="45:00" value="'+(cd.duration||'')+'"></div>'
+      +'<div><div class="cardio-label">Duration</div><input id="cardio-dur-'+ci+'" type="text" placeholder="45 or 1:30 or 1:30:00" value="'+(cd.duration||'')+'"></div>'
       +'</div>'
       +'<div style="margin-top:6px;font-size:12px;color:var(--text2);font-weight:500" id="cardio-pace-'+ci+'"></div>'
       +'<div class="cardio-grid" style="margin-top:8px">'
       +'<div><div class="cardio-label">Location</div><input id="cardio-loc-'+ci+'" type="text" placeholder="Crissy Field" value="'+(cd.location||'')+'"></div>'
       +'<div><div class="cardio-label">Effort (RPE 1-10)</div><input id="cardio-eff-'+ci+'" type="number" min="1" max="10" placeholder="7" value="'+(cd.effort||'')+'"></div>'
       +'</div>'
-      +'<div style="margin-top:8px"><div class="cardio-label">Notes</div><input id="cardio-notes-'+ci+'" type="text" placeholder="Easy recovery run..." value="'+(cd.notes||'')+'"></div>';
+      +'<div style="margin-top:8px"><div class="cardio-label">Notes</div><input id="cardio-notes-'+ci+'" type="text" placeholder="Easy recovery run..." value="'+(cd.notes||'')+'"></div>'
+      +'<div style="margin-top:8px"><div class="cardio-label">Time</div><input id="cardio-time-'+ci+'" type="time" style="color-scheme:light" value="'+(cd.time?timeToHHMM(cd.time):'')+'"></div>';
     c.appendChild(block);
     // Wire up events via addEventListener — no inline onclick/oninput needed
     block.querySelector('#cardio-type-'+ci).addEventListener('change',function(){updateCardio(ci,'type',this.value);});
@@ -1011,8 +1068,34 @@ function renderCardio(){
     block.querySelector('#cardio-loc-'+ci).addEventListener('input',function(){updateCardio(ci,'location',this.value);});
     block.querySelector('#cardio-eff-'+ci).addEventListener('input',function(){updateCardio(ci,'effort',this.value);});
     block.querySelector('#cardio-notes-'+ci).addEventListener('input',function(){updateCardio(ci,'notes',this.value);});
+    block.querySelector('#cardio-time-'+ci).addEventListener('change',function(){updateCardio(ci,'time',hhmmToTime(this.value));});
     setTimeout(function(){renderCardioPace(ci);},0);
   });
+}
+
+function renderApiUsage(){
+  var el=document.getElementById('api-usage-display');
+  if(!el)return;
+  var usage=lsGet('healthlog-api-usage');
+  if(!usage||!usage.calls){el.innerHTML='No insights used yet.';return;}
+  // Sonnet pricing: $3/M input, $15/M output
+  var inputCost=usage.inputTokens/1000000*3;
+  var outputCost=usage.outputTokens/1000000*15;
+  var totalCost=inputCost+outputCost;
+  var lastDate=usage.lastCall?new Date(usage.lastCall).toLocaleDateString('en-US',{month:'short',day:'numeric'}):'';
+  el.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:8px">'
+    +'<div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Insights used</div><div style="font-size:18px;font-weight:600">'+usage.calls+'</div></div>'
+    +'<div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Est. cost</div><div style="font-size:18px;font-weight:600">$'+totalCost.toFixed(3)+'</div></div>'
+    +'<div><div style="font-size:10px;color:var(--text3);margin-bottom:2px">Last used</div><div style="font-size:14px;font-weight:500;margin-top:3px">'+lastDate+'</div></div>'
+    +'</div>'
+    +'<div style="margin-top:8px;display:flex;justify-content:space-between;align-items:center">'
+    +'<span style="font-size:11px;color:var(--text3)">'+usage.inputTokens.toLocaleString()+' input · '+usage.outputTokens.toLocaleString()+' output tokens</span>'
+    +'<button class="btn btn-sm" onclick="resetApiUsage()" style="font-size:11px;padding:4px 8px">Reset</button>'
+    +'</div>';
+}
+function resetApiUsage(){
+  lsSet('healthlog-api-usage',{calls:0,inputTokens:0,outputTokens:0});
+  renderApiUsage();
 }
 // ── Notes ──────────────────────────────────────────────────────────────────
 function saveNotes(v){state.notes=v;saveState();}
@@ -1196,19 +1279,22 @@ function _doTrainerReport(){
       exHtml='';
       d.cardio.forEach(function(cd){
         if(!cd.distance&&!cd.duration)return;
-        exHtml+='<div style="margin-bottom:4px"><strong>'+cd.type+'</strong>'+(cd.location?' <span style="color:#888;font-size:11px">@ '+cd.location+'</span>':'')+'<br><span style="color:#666;font-size:11px">'+(cd.distance?cd.distance+'mi ':'')+(cd.duration?cd.duration+' ':'')+(cd.effort?'RPE '+cd.effort:'')+'</span>'+(cd.notes?'<br><span style="color:#888;font-size:11px">'+cd.notes+'</span>':'')+'</div>';
+        exHtml+='<div style="margin-bottom:4px"><strong>'+cd.type+'</strong>'+(cd.location?' <span style="color:#888;font-size:11px">@ '+cd.location+'</span>':'')+'<br><span style="color:#666;font-size:11px">'+(cd.distance?cd.distance+'mi ':'')+(cd.duration?formatDur(cd.duration)+' ':'')+(cd.effort?'RPE '+cd.effort:'')+'</span>'+(cd.notes?'<br><span style="color:#888;font-size:11px">'+cd.notes+'</span>':'')+'</div>';
       });
     }
-    if(d.exercises&&d.exercises.filter(e=>e.name).length){
-      exHtml=d.exercises.filter(e=>e.name).map(ex=>{
-        const sets=ex.sets.filter(s=>s.reps||s.weight);
-        const setsStr=sets.map(s=>(s.weight?s.weight+'lb':'bw')+'x'+(s.reps||'?')).join(', ');
-        return '<div style="margin-bottom:8px">'
-          +'<strong style="font-size:12px">'+ex.name+'</strong><br>'
-          +(ex.rpe?'<span style="color:#888;font-size:11px">RPE '+ex.rpe+'</span><br>':'')
-          +'<span style="color:#555;font-size:11px">'+setsStr+'</span>'
-          +'</div>';
-      }).join('');
+    if(d.exercises&&d.exercises.length){
+      const liftedEx=d.exercises.filter(e=>e.name&&e.sets&&e.sets.some(s=>s.reps&&String(s.reps).trim()!==''));
+      if(liftedEx.length){
+        exHtml=liftedEx.map(ex=>{
+          const sets=ex.sets.filter(s=>s.reps&&String(s.reps).trim()!=='');
+          const setsStr=sets.map(s=>(s.weight?s.weight+'lb':'bw')+'x'+s.reps).join(', ');
+          return '<div style="margin-bottom:8px">'
+            +'<strong style="font-size:12px">'+ex.name+'</strong><br>'
+            +(ex.rpe?'<span style="color:#888;font-size:11px">RPE '+ex.rpe+'</span><br>':'')
+            +'<span style="color:#555;font-size:11px">'+setsStr+'</span>'
+            +'</div>';
+        }).join('');
+      }
     }
 
     // Meals
@@ -1240,7 +1326,12 @@ function _doTrainerReport(){
       </td>
       <td style="padding:14px 12px;border-bottom:1px solid #eee;vertical-align:top;font-size:13px">
         <div style="color:#888;font-size:11px">Feel: ${feel} &nbsp; Water: ${water}</div>
-        ${cal?'<div style="margin-top:4px;font-size:12px"><strong>'+cal+'</strong> kcal &nbsp; <span style="color:#d4640a">'+prot+'g P</span> &nbsp; <span style="color:#2a7a3b">'+carb+'g C</span> &nbsp; <span style="color:#1a5fa8">'+fat+'g F</span></div>':''}
+        ${cal?'<div style="margin-top:6px;font-size:11px;line-height:1.8">'
+          +'<strong>'+cal+'</strong> kcal<br>'
+          +'<strong style="color:#d4640a">'+prot+'</strong><span style="color:#d4640a">g P</span><br>'
+          +'<strong style="color:#2a7a3b">'+carb+'</strong><span style="color:#2a7a3b">g C</span><br>'
+          +'<strong style="color:#1a5fa8">'+fat+'</strong><span style="color:#1a5fa8">g F</span>'
+          +'</div>':''}
       </td>
       <td style="padding:14px 12px;border-bottom:1px solid #eee;vertical-align:top;font-size:12px;min-width:160px">${exHtml}</td>
       <td style="padding:14px 12px;border-bottom:1px solid #eee;vertical-align:top;font-size:12px;min-width:160px">${mealHtml}</td>
@@ -1261,13 +1352,15 @@ function _doTrainerReport(){
   const avg=arr=>arr.length?Math.round(arr.reduce((a,b)=>a+b,0)/arr.length*10)/10:null;
 
   const summaryHtml=`
-    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:32px">
-      ${avg(avgWeight)?'<div><div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Avg weight</div><div style="font-size:24px;font-weight:600;margin-top:2px">'+avg(avgWeight)+' lbs</div></div>':''}
-      ${avg(avgSleep)?'<div><div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Avg sleep</div><div style="font-size:24px;font-weight:600;margin-top:2px">'+avg(avgSleep)+'h</div></div>':''}
-      ${avg(avgFeel)?'<div><div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Avg feeling</div><div style="font-size:24px;font-weight:600;margin-top:2px">'+avg(avgFeel)+'/5</div></div>':''}
-      ${avg(avgProt)?'<div><div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Avg protein</div><div style="font-size:24px;font-weight:600;margin-top:2px">'+avg(avgProt)+'g</div></div>':''}
-      <div><div style="font-size:11px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Days logged</div><div style="font-size:24px;font-weight:600;margin-top:2px">${logged.length}/7</div></div>
-    </div>`;
+    <table style="width:100%;border-collapse:collapse;margin-bottom:32px">
+      <tr>
+        ${avg(avgWeight)?'<td style="padding:0 24px 0 0;white-space:nowrap"><div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Avg weight</div><div style="font-size:22px;font-weight:600;margin-top:2px">'+avg(avgWeight)+' lbs</div></td>':''}
+        ${avg(avgSleep)?'<td style="padding:0 24px 0 0;white-space:nowrap"><div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Avg sleep</div><div style="font-size:22px;font-weight:600;margin-top:2px">'+avg(avgSleep)+'h</div></td>':''}
+        ${avg(avgFeel)?'<td style="padding:0 24px 0 0;white-space:nowrap"><div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Avg feeling</div><div style="font-size:22px;font-weight:600;margin-top:2px">'+avg(avgFeel)+'/5</div></td>':''}
+        ${avg(avgProt)?'<td style="padding:0 24px 0 0;white-space:nowrap"><div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Avg protein</div><div style="font-size:22px;font-weight:600;margin-top:2px">'+avg(avgProt)+'g</div></td>':''}
+        <td style="padding:0;white-space:nowrap"><div style="font-size:10px;color:#999;text-transform:uppercase;letter-spacing:0.06em">Days logged</div><div style="font-size:22px;font-weight:600;margin-top:2px">${logged.length}/7</div></td>
+      </tr>
+    </table>`;
 
   // Capture chart snapshots before building HTML
   // Render each chart into a fresh offscreen canvas so we get a clean PNG
@@ -1358,7 +1451,7 @@ ${summaryHtml}
   <tbody>${bodyRows}</tbody>
 </table>
 
-<h2 style="font-size:18px;font-weight:600;margin:40px 0 16px;page-break-before:always">Charts</h2>
+<h2 style="font-size:18px;font-weight:600;margin:40px 0 16px">Charts</h2>
 ${chartWeight?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Weight</div>'+chartWeight+'</div>':''}
 ${chartSleep?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Sleep (hrs)</div>'+chartSleep+'</div>':''}
 ${chartFeel?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Feeling & sleep quality</div>'+chartFeel+'</div>':''}
@@ -1366,6 +1459,57 @@ ${chartCals?'<div style="margin-bottom:32px"><div style="font-size:11px;font-wei
 ${chartMacros?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Macros (grams)</div>'+chartMacros+'</div>':''}
 ${chartMacrosPct?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Macros vs goal (%)</div>'+chartMacrosPct+'</div>':''}
 ${chartVolume?'<div style="margin-bottom:32px"><div style="font-size:11px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Workout volume</div>'+chartVolume+'</div>':''}
+
+<h2 style="font-size:18px;font-weight:600;margin:40px 0 16px;page-break-before:always">Patterns</h2>
+${(function(){
+  var allPairs=[];
+  Object.keys(allDays).sort().forEach(function(dk){
+    var s=allDays[dk];if(!s)return;
+    allPairs.push({
+      sleepH:s.sleepMins?s.sleepMins/60:null,
+      sleepQ:s.sleepQ||null,
+      feel:s.feel||null,
+      prot:s.meals?s.meals.reduce(function(a,m){return a+m.prot;},0)||null:null,
+      steps:s.vitals&&s.vitals.steps?parseInt(s.vitals.steps)||null:null,
+      rpe:s.exercises&&s.exercises.length&&s.exercises.filter(function(e){return e.rpe;}).length?s.exercises.reduce(function(a,e){return a+(e.rpe||0);},0)/s.exercises.filter(function(e){return e.rpe;}).length:null,
+      vol:calcVolume(s)
+    });
+  });
+  function xcorr(xs,ys){var n=xs.length;if(n<3)return null;var mx=xs.reduce(function(a,b){return a+b;},0)/n,my=ys.reduce(function(a,b){return a+b;},0)/n;var num=xs.reduce(function(s,x,i){return s+(x-mx)*(ys[i]-my);},0);var den=Math.sqrt(xs.reduce(function(s,x){return s+(x-mx)*(x-mx);},0)*ys.reduce(function(s,y){return s+(y-my)*(y-my);},0));return den?Math.round(num/den*100)/100:null;}
+  var tests=[
+    {x:'sleepH',y:'feel',pos:'More sleep → better mood',neg:'More sleep → worse mood'},
+    {x:'sleepQ',y:'feel',pos:'Better sleep quality → better mood',neg:'Better sleep quality → worse mood'},
+    {x:'sleepH',y:'vol',pos:'More sleep → higher workout volume',neg:'More sleep → lower workout volume'},
+    {x:'prot',y:'vol',pos:'More protein → higher workout volume',neg:'More protein → lower workout volume'},
+    {x:'prot',y:'feel',pos:'More protein → better mood',neg:'More protein → worse mood'},
+    {x:'steps',y:'feel',pos:'More steps → better mood',neg:'More steps → worse mood'},
+    {x:'rpe',y:'feel',pos:'Harder workouts → better mood',neg:'Harder workouts → worse mood'},
+    {x:'rpe',y:'vol',pos:'Higher effort → more volume',neg:'Higher effort → less volume'},
+  ];
+  var rows='';
+  tests.forEach(function(t){
+    var pts=allPairs.filter(function(p){return p[t.x]!==null&&p[t.y]!==null;});
+    if(pts.length<3)return;
+    var r=xcorr(pts.map(function(p){return p[t.x];}),pts.map(function(p){return p[t.y];}));
+    if(r===null)return;
+    var abs=Math.abs(r);
+    if(abs<0.2)return;
+    var label=r>0?t.pos:t.neg;
+    var strength=abs>0.6?'strong':abs>0.3?'moderate':'weak';
+    var filled=Math.round(abs*10);
+    var barColor=r>0?'#1a3a2a':'#c0392b';
+    var bar='';
+    for(var b=0;b<10;b++)bar+='<span style="display:inline-block;width:18px;height:10px;border-radius:2px;margin-right:2px;background:'+(b<filled?barColor:'#e0e0e0')+'"></span>';
+    rows+='<tr>'
+      +'<td style="padding:8px 12px 8px 0;font-size:12px;color:#333;border-bottom:1px solid #f0f0f0">'+label+'</td>'
+      +'<td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;white-space:nowrap">'+bar+'</td>'
+      +'<td style="padding:8px 0 8px 12px;font-size:11px;color:#999;border-bottom:1px solid #f0f0f0;white-space:nowrap">'+strength+'</td>'
+      +'</tr>';
+  });
+  if(!rows)return '<p style="font-size:13px;color:#999">Not enough data for patterns yet — log at least 3 days.</p>';
+  return '<table style="width:100%;border-collapse:collapse;page-break-inside:avoid">'+rows+'</table>';
+})()}
+
 </body></html>`;
 
   // Open in same tab via blob URL - no popup permission needed
@@ -1465,12 +1609,7 @@ function renderAnalytics(){
     var totalMins=0;
     s.cardio.forEach(function(cd){
       if(!cd.duration)return;
-      var parts=cd.duration.split(':').map(Number);
-      var mins=0;
-      if(parts.length===1)mins=parts[0];
-      else if(parts.length===2)mins=parts[0]+parts[1]/60;
-      else if(parts.length===3)mins=parts[0]*60+parts[1]+parts[2]/60;
-      totalMins+=mins;
+      totalMins+=parseDurMins(cd.duration);
     });
     return totalMins||null;
   });
@@ -1496,11 +1635,7 @@ function renderAnalytics(){
       // Calculate pace
       var pace=null;
       if(cd.duration){
-        var parts=cd.duration.split(':').map(Number);
-        var mins=0;
-        if(parts.length===1)mins=parts[0];
-        else if(parts.length===2)mins=parts[0]+parts[1]/60;
-        else if(parts.length===3)mins=parts[0]*60+parts[1]+parts[2]/60;
+        var mins=parseDurMins(cd.duration);
         if(mins)pace=Math.round(dist/mins*60*10)/10;
       }
       actMap[cd.type].push({date:dk,dist:dist,pace:pace});
@@ -1638,9 +1773,18 @@ async function getInsights(){
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:prompt}]})});
     const data=await res.json();
+    if(data.usage){
+      const usage=lsGet('healthlog-api-usage')||{calls:0,inputTokens:0,outputTokens:0};
+      usage.calls=(usage.calls||0)+1;
+      usage.inputTokens=(usage.inputTokens||0)+(data.usage.input_tokens||0);
+      usage.outputTokens=(usage.outputTokens||0)+(data.usage.output_tokens||0);
+      usage.lastCall=new Date().toISOString();
+      lsSet('healthlog-api-usage',usage);
+      renderApiUsage();
+    }
     showInsightsSheet(data.content&&data.content[0]?data.content[0].text:'Could not generate insights.');
   }catch(e){showInsightsSheet('Could not load insights. Check your API key in Settings.');}
-  btn.textContent='Insights ->';btn.disabled=false;
+  btn.textContent='Insights ↗';btn.disabled=false;
 }
 function showInsightsSheet(text){
   const ex=document.getElementById('insights-sheet');if(ex)ex.remove();
