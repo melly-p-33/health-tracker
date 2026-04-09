@@ -241,11 +241,18 @@ textarea:focus{border-color:var(--border2)}
 
   <!-- LIFTING -->
   <div id="screen-lift" class="screen">
-    <div style="display:flex;gap:0;margin-bottom:16px;background:var(--bg3);border-radius:10px;padding:3px">
+    <div id="workout-outer-tabs" style="display:flex;gap:0;margin-bottom:16px;background:var(--bg3);border-radius:10px;padding:3px">
       <button id="wsub-workout" onclick="showWorkoutSub('workout')" style="flex:1;padding:7px;font-size:13px;font-weight:600;border:none;border-radius:8px;cursor:pointer;background:var(--bg);color:var(--text);font-family:var(--font)">Workout</button>
       <button id="wsub-prs" onclick="showWorkoutSub('prs')" style="flex:1;padding:7px;font-size:13px;font-weight:500;border:none;border-radius:8px;cursor:pointer;background:transparent;color:var(--text3);font-family:var(--font)">PRs</button>
+      <button id="wsub-progress" onclick="showWorkoutSub('progress')" style="flex:1;padding:7px;font-size:13px;font-weight:500;border:none;border-radius:8px;cursor:pointer;background:transparent;color:var(--text3);font-family:var(--font)">Progress</button>
     </div>
     <div id="wsub-workout-panel">
+    <div id="workout-summary-bar" style="display:none;background:var(--bg2);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;border-left:3px solid var(--accent)">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+        <div style="font-size:13px;color:var(--text)" id="workout-summary-text"></div>
+        <div style="font-size:13px;font-weight:600;color:var(--accent)" id="workout-summary-burn"></div>
+      </div>
+    </div>
     <div class="section-label">Workout time</div>
     <div class="card">
       <div class="row-between">
@@ -262,15 +269,35 @@ textarea:focus{border-color:var(--border2)}
       <span class="tag" onclick="loadRoutine('full',this)">Full body</span>
     </div>
     <div style="display:flex;flex-wrap:wrap;margin-bottom:18px">
-      <span class="tag" onclick="loadRoutine('custom',this)">+ Custom</span>
+      <span class="tag" onclick="openRoutinesSheet(this)">My routines</span>
       <span class="tag" onclick="loadFavExercises(this)" id="fav-ex-tag">&#9825; Favourites</span>
     </div>
     <div id="exercises-container"></div>
     <button class="btn" style="width:100%;margin-top:4px" onclick="addExercise()">+ Add exercise</button>
+    <button class="btn btn-sm" style="margin-top:8px" onclick="saveCurrentRoutine()">Save as routine...</button>
     <div class="section-label" style="margin-top:22px">Cardio</div>
     <div id="cardio-container"></div>
     <button class="btn" style="width:100%;margin-top:4px" onclick="addCardio()">+ Add cardio</button>
   </div>
+    <div id="wsub-prs-panel" style="display:none">
+    <div id="prsub-current-panel">
+    <div class="section-label">Personal records</div>
+    <div class="card" id="pr-list"><div style="font-size:13px;color:var(--text3)">No PRs yet — log lifting sets to track them.</div></div>
+    </div><!-- end prsub-current-panel -->
+    <div class="section-label">Add / update PR</div>
+    <div class="card">
+      <input type="text" id="pr-name" placeholder="Exercise (e.g. Squat)" style="margin-bottom:8px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">Weight (lbs)</div><input type="number" id="pr-weight" placeholder="225"></div>
+        <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">Reps</div><input type="number" id="pr-reps" placeholder="1"></div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="savePR()">Save PR</button>
+    </div>
+    </div>
+    <div id="wsub-progress-panel" style="display:none">
+      <div class="section-label">Lift progress</div>
+      <div id="pr-progress-charts"><div style="font-size:13px;color:var(--text3)">Log PRs to see progress charts.</div></div>
+    </div>
   </div>
 
   <!-- NUTRITION -->
@@ -305,20 +332,7 @@ textarea:focus{border-color:var(--border2)}
       <button class="btn btn-sm btn-primary" onclick="addManualFood()">Add food</button>
     </div>
     <div id="meals-log"></div>    </div>
-    <div id="wsub-prs-panel" style="display:none">
-
-    <div class="section-label">Personal records</div>
-    <div class="card" id="pr-list"><div style="font-size:13px;color:var(--text3)">No PRs yet — log lifting sets to track them.</div></div>
-    <div class="section-label">Add / update PR</div>
-    <div class="card">
-      <input type="text" id="pr-name" placeholder="Exercise (e.g. Squat)" style="margin-bottom:8px">
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-        <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">Weight (lbs)</div><input type="number" id="pr-weight" placeholder="225"></div>
-        <div><div style="font-size:10px;color:var(--text3);margin-bottom:3px">Reps</div><input type="number" id="pr-reps" placeholder="1"></div>
-      </div>
-      <button class="btn btn-sm btn-primary" onclick="savePR()">Save PR</button>
-    </div>
-    </div>
+    
 
   <!-- ANALYTICS -->
   <div id="screen-analytics" class="screen">
@@ -459,7 +473,7 @@ textarea:focus{border-color:var(--border2)}
   </div>
 </div>
 <div class="toast" id="toast"></div>
-<div class="backup-reminder" id="backup-reminder" style="display:none"><span id="backup-reminder-msg">Back up your data</span><button onclick="exportData();dismissBackupReminder()">Export now</button><button class="dismiss" onclick="dismissBackupReminder()">✕</button></div>
+<div class="backup-reminder" id="backup-reminder" style="display:none"><span id="backup-reminder-msg">Back up your data</span><button onclick="autoExportData();dismissBackupReminder()">Save now</button><button class="dismiss" onclick="dismissBackupReminder()">✕</button></div>
 </div>
 
 <script>
@@ -510,6 +524,7 @@ function init(){
   const k=lsGet('healthlog-apikey');if(k)document.getElementById('api-key-input').value=k;
   const p=lsGet('healthlog-prs');if(p)prs=p;
   loadFavExercisesFromStorage();
+  loadCustomRoutinesFromStorage();
   // Apply saved theme preference
   const savedTheme=lsGet('healthlog-theme')||'auto';
   applyTheme(savedTheme);
@@ -534,21 +549,20 @@ function saveState(){
 function saveApiKey(v){lsSet('healthlog-apikey',v);}
 
 function showWorkoutSub(tab){
-  var wPanel=document.getElementById('wsub-workout-panel');
-  var pPanel=document.getElementById('wsub-prs-panel');
-  var wBtn=document.getElementById('wsub-workout');
-  var pBtn=document.getElementById('wsub-prs');
-  if(!wPanel)return;
-  if(tab==='prs'){
-    wPanel.style.display='none';pPanel.style.display='block';
-    pBtn.style.background='var(--bg)';pBtn.style.color='var(--text)';pBtn.style.fontWeight='600';
-    wBtn.style.background='transparent';wBtn.style.color='var(--text3)';wBtn.style.fontWeight='500';
-    renderPRs();checkForNewPRs();
-  } else {
-    pPanel.style.display='none';wPanel.style.display='block';
-    wBtn.style.background='var(--bg)';wBtn.style.color='var(--text)';wBtn.style.fontWeight='600';
-    pBtn.style.background='transparent';pBtn.style.color='var(--text3)';pBtn.style.fontWeight='500';
-  }
+  var panels={workout:'wsub-workout-panel',prs:'wsub-prs-panel',progress:'wsub-progress-panel'};
+  var btns={workout:'wsub-workout',prs:'wsub-prs',progress:'wsub-progress'};
+  Object.keys(panels).forEach(function(t){
+    var p=document.getElementById(panels[t]);
+    var b=document.getElementById(btns[t]);
+    if(p)p.style.display=t===tab?'block':'none';
+    if(b){
+      b.style.background=t===tab?'var(--bg)':'transparent';
+      b.style.color=t===tab?'var(--text)':'var(--text3)';
+      b.style.fontWeight=t===tab?'600':'500';
+    }
+  });
+  if(tab==='prs'){renderPRs();checkForNewPRs();}
+  if(tab==='progress'){renderPRProgress();}
 }
 function showAnalyticsSub(tab){
   var cPanel=document.getElementById('asub-charts-panel');
@@ -804,6 +818,7 @@ function updateSet(ei,si,key,v){
   if(!state.exercises[ei]||!state.exercises[ei].sets[si])return;
   state.exercises[ei].sets[si][key]=v;
   saveState();
+  renderWorkoutSummary();
   // Flash saved indicator on the exercise block
   var blocks=document.getElementById('exercises-container').querySelectorAll('.exercise-block');
   if(blocks[ei]){
@@ -1182,9 +1197,8 @@ function loadDayView(){
   // Feeling
   document.querySelectorAll('#feel-row .feel-btn').forEach(b=>b.classList.remove('selected'));
   if(dayData&&dayData.feel)document.querySelectorAll('#feel-row .feel-btn')[dayData.feel-1].classList.add('selected');
-  // Water
-  const ws=dayData&&dayData.water!=null?dayData.water:0;
-  if(isToday){state.water=ws;}else{const tmp=state.water;state.water=ws;renderWater();state.water=tmp;renderWater();}
+  // Water - state is already set correctly by shiftDay, just render
+  renderWater();
   // Workout time
   document.getElementById('workout-time').value=dayData&&dayData.workoutTime?dayData.workoutTime:'';
   // Notes
@@ -1196,7 +1210,7 @@ function loadDayView(){
   }
   if(!state.cardio)state.cardio=[];
   renderExercises();renderCardio();
-  updateMacros();renderMeals();renderBurnEstimate();
+  updateMacros();renderMeals();renderBurnEstimate();renderWorkoutSummary();
   // Show past day banner (editable)
   let banner=document.getElementById('past-day-banner');
   if(!isToday){
@@ -1211,15 +1225,42 @@ function checkBackupReminder(){
   const lastExport=lsGet('healthlog-lastexport');
   const daysSince=lastExport?Math.floor((Date.now()-lastExport)/(1000*60*60*24)):null;
   const dayCount=Object.keys(allDays).length;
-  if(dayCount<3)return; // not enough data to worry about yet
+  if(dayCount<2)return;
   const el=document.getElementById('backup-reminder');
   const msg=document.getElementById('backup-reminder-msg');
-  if(!lastExport){
-    msg.textContent='You have '+dayCount+' days logged — back up your data';
+  const needsBackup=!lastExport||(daysSince>=3);
+  if(needsBackup){
+    const label=!lastExport?'You have '+dayCount+' days logged':'Last backup '+daysSince+' day'+(daysSince!==1?'s':'')+' ago';
+    msg.textContent=label+' — tap to save a backup';
     el.style.display='flex';
-  } else if(daysSince>=14){
-    msg.textContent='Last backup '+daysSince+' days ago';
-    el.style.display='flex';
+    // Auto-trigger the download after a short delay so user sees the banner first
+    setTimeout(function(){
+      autoExportData();
+    }, 1500);
+  }
+}
+function autoExportData(){
+  // Silently export without closing the banner - user can dismiss after
+  try{
+    var data={exportedAt:new Date().toISOString(),version:1,today:state,allDays:allDays,goals:goals};
+    var blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    var dateStr=TODAY_KEY;
+    a.download='stack-backup-'+dateStr+'.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    lsSet('healthlog-lastexport',Date.now());
+    // Update banner message after download triggered
+    var msg=document.getElementById('backup-reminder-msg');
+    if(msg)msg.textContent='Backup saved — check your Downloads folder';
+  }catch(e){
+    // If auto-download fails (e.g. browser blocked it), just show the manual prompt
+    var msg=document.getElementById('backup-reminder-msg');
+    if(msg)msg.textContent='Tap to save a backup now';
   }
 }
 function dismissBackupReminder(){
@@ -1438,6 +1479,34 @@ function estimateCalBurn(dayState){
   }
   return totalCals>0?Math.round(totalCals):null;
 }
+
+function renderWorkoutSummary(){
+  var bar=document.getElementById('workout-summary-bar');
+  var txt=document.getElementById('workout-summary-text');
+  var burn=document.getElementById('workout-summary-burn');
+  if(!bar||!txt||!burn)return;
+  var exercises=state.exercises||[];
+  var loggedEx=exercises.filter(function(e){
+    return e.name&&e.sets&&e.sets.some(function(s){return s.reps&&String(s.reps).trim()!=='';});
+  });
+  if(!loggedEx.length){bar.style.display='none';return;}
+  var totalSets=0,totalReps=0;
+  loggedEx.forEach(function(e){
+    e.sets.forEach(function(s){
+      if(s.reps&&String(s.reps).trim()!==''){totalSets++;totalReps+=parseInt(s.reps)||0;}
+    });
+  });
+  var cardio=state.cardio||[];
+  var cardioLogged=cardio.filter(function(c){return c.distance||c.duration;});
+  var parts=[];
+  parts.push(loggedEx.length+' exercise'+(loggedEx.length!==1?'s':''));
+  parts.push(totalSets+' set'+(totalSets!==1?'s':''));
+  if(cardioLogged.length)parts.push(cardioLogged.length+' cardio');
+  txt.textContent=parts.join(' · ');
+  var estBurn=estimateCalBurn(state);
+  burn.textContent=estBurn?'~'+estBurn+' kcal':'';
+  bar.style.display='flex';
+}
 function renderBurnEstimate(){
   try{
     var el=document.getElementById('burn-estimate');
@@ -1449,6 +1518,142 @@ function renderBurnEstimate(){
   }catch(e){}
 }
 
+
+// ── Custom routines ─────────────────────────────────────────────────────────
+var customRoutines=[];
+function loadCustomRoutinesFromStorage(){
+  customRoutines=lsGet('healthlog-custom-routines')||[];
+}
+function saveCurrentRoutine(){
+  var exercises=state.exercises||[];
+  var named=exercises.filter(function(e){return e.name&&e.name.trim();});
+  if(!named.length){showToast('Add some exercises first');return;}
+  var sheet=makeSheet(
+    '<div style="background:var(--bg);border-radius:16px 16px 0 0;padding:20px;width:100%">'
+    +'<div style="font-size:15px;font-weight:600;margin-bottom:12px">Save routine</div>'
+    +'<input id="routine-name-input" type="text" placeholder="e.g. My push day" style="margin-bottom:4px">'
+    +'<div style="font-size:11px;color:var(--text3);margin-bottom:16px">'+named.length+' exercise'+(named.length!==1?'s':'')+'</div>'
+    +'<div style="display:flex;gap:10px">'
+    +'<button id="routine-save-cancel" class="btn" style="flex:1;padding:12px">Cancel</button>'
+    +'<button id="routine-save-ok" class="btn btn-primary" style="flex:1;padding:12px">Save</button>'
+    +'</div></div>'
+  );
+  var inp=sheet.querySelector('#routine-name-input');
+  setTimeout(function(){inp.focus();},100);
+  sheet.querySelector('#routine-save-cancel').addEventListener('click',function(){sheet.remove();});
+  sheet.querySelector('#routine-save-ok').addEventListener('click',function(){
+    var name=inp.value.trim();
+    if(!name){showToast('Enter a name');return;}
+    // Save exercise names + last set weight/reps as reminder
+    var exercises=named.map(function(e){
+      var lastSet=null;
+      var validSets=e.sets.filter(function(s){return s.reps&&String(s.reps).trim()!=='';});
+      if(validSets.length)lastSet=validSets[validSets.length-1];
+      return {name:e.name,reminder:lastSet?{reps:lastSet.reps,weight:lastSet.weight}:null};
+    });
+    // Check for duplicate name
+    var existing=customRoutines.findIndex(function(r){return r.name.toLowerCase()===name.toLowerCase();});
+    if(existing>=0){
+      customRoutines[existing]={name:name,exercises:exercises};
+      showToast('Routine updated');
+    } else {
+      customRoutines.push({name:name,exercises:exercises});
+      showToast('Routine saved');
+    }
+    lsSet('healthlog-custom-routines',customRoutines);
+    sheet.remove();
+  });
+}
+function openRoutinesSheet(tagEl){
+  // Build sheet listing all routines + option to start custom
+  var rows=customRoutines.length?customRoutines.map(function(r,i){
+    return '<div id="routine-row-'+i+'" style="display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:0.5px solid var(--border);cursor:pointer">'
+      +'<div>'
+      +'<div style="font-size:14px;font-weight:500;color:var(--text)">'+r.name+'</div>'
+      +'<div style="font-size:11px;color:var(--text3);margin-top:2px">'+r.exercises.length+' exercise'+(r.exercises.length!==1?'s':'')+'</div>'
+      +'</div>'
+      +'<span style="font-size:12px;color:var(--text3)">Hold to delete</span>'
+      +'</div>';
+  }).join(''):'<div style="font-size:13px;color:var(--text3);padding:16px 0">No saved routines yet.<br>Build a workout and tap "Save as routine..."</div>';
+
+  var sheet=makeSheet(
+    '<div style="background:var(--bg);border-radius:16px 16px 0 0;padding:20px;width:100%;max-height:75vh;overflow-y:auto">'
+    +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
+    +'<span style="font-size:15px;font-weight:600">My routines</span>'
+    +'<button id="routines-close" style="background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer;font-family:var(--font)">x</button></div>'
+    +'<div id="routines-list">'+rows+'</div>'
+    +'<button id="routine-custom-btn" class="btn" style="width:100%;padding:12px;margin-top:16px">+ Start with blank workout</button>'
+    +'</div>'
+  );
+
+  sheet.querySelector('#routines-close').addEventListener('click',function(){sheet.remove();});
+  sheet.querySelector('#routine-custom-btn').addEventListener('click',function(){
+    sheet.remove();
+    document.querySelectorAll('.tag').forEach(function(t){t.classList.remove('active');});
+    if(tagEl)tagEl.classList.add('active');
+    addExercise();
+  });
+
+  // Wire up each routine row
+  customRoutines.forEach(function(r,i){
+    var row=sheet.querySelector('#routine-row-'+i);
+    if(!row)return;
+    // Capture routine data by value
+    var routineData=JSON.parse(JSON.stringify(r));
+    var routineIndex=i;
+    // Tap to load
+    row.addEventListener('click',function(e){
+      e.stopPropagation();
+      sheet.remove();
+      var hasLogged=state.exercises&&state.exercises.some(function(e){
+        return e.name&&e.sets&&e.sets.some(function(s){return s.reps&&String(s.reps).trim()!=='';});
+      });
+      function doLoad(){
+        document.querySelectorAll('.tag').forEach(function(t){t.classList.remove('active');});
+        if(tagEl)tagEl.classList.add('active');
+        state.exercises=routineData.exercises.map(function(e){
+          var set=e.reminder?{reps:e.reminder.reps,weight:e.reminder.weight}:{reps:'',weight:''};
+          return {name:e.name,sets:[set],rpe:''};
+        });
+        renderExercises();saveState();
+        showWorkoutSub('workout');
+        showToast('Loaded '+routineData.name);
+      }
+      if(hasLogged){
+        var exCount=state.exercises.filter(function(e){return e.name;}).length;
+        confirmReplaceWorkout(exCount,doLoad);
+      } else {
+        doLoad();
+      }
+    });
+    // Long press to delete
+    var pressTimer=null;
+    row.addEventListener('touchstart',function(){
+      pressTimer=setTimeout(function(){
+        pressTimer=null;
+        var confirmSheet=makeSheet(
+          '<div style="background:var(--bg);border-radius:16px 16px 0 0;padding:20px;width:100%">'
+          +'<div style="font-size:15px;font-weight:600;margin-bottom:8px">Delete "'+r.name+'"?</div>'
+          +'<div style="font-size:13px;color:var(--text2);margin-bottom:20px">This cannot be undone.</div>'
+          +'<div style="display:flex;gap:10px">'
+          +'<button id="del-cancel" class="btn" style="flex:1;padding:12px">Cancel</button>'
+          +'<button id="del-ok" class="btn btn-primary" style="flex:1;padding:12px;background:#c0392b">Delete</button>'
+          +'</div></div>'
+        );
+        confirmSheet.querySelector('#del-cancel').addEventListener('click',function(){confirmSheet.remove();sheet.remove();openRoutinesSheet(tagEl);});
+        confirmSheet.querySelector('#del-ok').addEventListener('click',function(){
+          customRoutines.splice(i,1);
+          lsSet('healthlog-custom-routines',customRoutines);
+          confirmSheet.remove();
+          sheet.remove();
+          showToast('Routine deleted');
+        });
+      },600);
+    });
+    row.addEventListener('touchend',function(){if(pressTimer){clearTimeout(pressTimer);pressTimer=null;}});
+    row.addEventListener('touchmove',function(){if(pressTimer){clearTimeout(pressTimer);pressTimer=null;}});
+  });
+}
 // ── Exercise favourites ─────────────────────────────────────────────────────
 var favExercises=[];
 function loadFavExercisesFromStorage(){
@@ -1758,6 +1963,105 @@ function renderPRs(){
   });
 }
 
+function showPRSub(tab){
+  var cp=document.getElementById('prsub-current-panel');
+  var pp=document.getElementById('prsub-progress-panel');
+  var cb=document.getElementById('prsub-current');
+  var pb=document.getElementById('prsub-progress');
+  if(!cp)return;
+  if(tab==='progress'){
+    cp.style.display='none';pp.style.display='block';
+    pb.style.background='var(--bg)';pb.style.color='var(--text)';pb.style.fontWeight='600';
+    cb.style.background='transparent';cb.style.color='var(--text3)';cb.style.fontWeight='500';
+    renderPRProgress();
+  } else {
+    pp.style.display='none';cp.style.display='block';
+    cb.style.background='var(--bg)';cb.style.color='var(--text)';cb.style.fontWeight='600';
+    pb.style.background='transparent';pb.style.color='var(--text3)';pb.style.fontWeight='500';
+  }
+}
+function renderPRProgress(){
+  var container=document.getElementById('pr-progress-charts');
+  if(!container)return;
+  var keys=Object.keys(prs).sort(function(a,b){return a.localeCompare(b);});
+  if(!keys.length){container.innerHTML='<div style="font-size:13px;color:var(--text3)">No PRs logged yet.</div>';return;}
+  container.innerHTML='';
+  var rootStyle=getComputedStyle(document.documentElement);
+  var gc=rootStyle.getPropertyValue('--chart-grid').trim()||'rgba(0,0,0,0.1)';
+  var tc=rootStyle.getPropertyValue('--chart-tick').trim()||'rgba(0,0,0,0.4)';
+  var accent=rootStyle.getPropertyValue('--accent').trim()||'#1a7a4a';
+
+  // Build session history from allDays for every exercise that has a PR
+  // Map: exerciseKey -> [{date, est1rm, weight, reps}]
+  var sessionMap={};
+  var allKeys=Object.keys(allDays).concat([TODAY_KEY]);
+  // dedupe
+  allKeys=allKeys.filter(function(d,i){return allKeys.indexOf(d)===i;}).sort();
+  allKeys.forEach(function(dk){
+    var dayData=dk===TODAY_KEY?state:allDays[dk];
+    if(!dayData||!dayData.exercises)return;
+    dayData.exercises.forEach(function(ex){
+      if(!ex.name)return;
+      var k=ex.name.toLowerCase();
+      if(!prs[k])return; // only chart exercises we have a PR for
+      ex.sets.forEach(function(s){
+        var w=parseFloat(s.weight)||0,r=parseInt(s.reps)||0;
+        if(!w||!r)return;
+        var est1rm=Math.round(w*(1+r/30));
+        if(!sessionMap[k])sessionMap[k]=[];
+        // Keep best est1rm per day
+        var existing=sessionMap[k].filter(function(p){return p.date===dk;});
+        if(existing.length){
+          if(est1rm>existing[0].est1rm){existing[0].est1rm=est1rm;existing[0].weight=w;existing[0].reps=r;}
+        } else {
+          sessionMap[k].push({date:dk,est1rm:est1rm,weight:w,reps:r});
+        }
+      });
+    });
+  });
+
+  keys.forEach(function(k){
+    var pr=prs[k];
+    var history=(sessionMap[k]||[]).slice().sort(function(a,b){return a.date<b.date?-1:1;});
+    // Fallback: use stored PR history if no session data
+    if(!history.length){
+      history=(pr.history||[]).slice();
+      if(!history.length||history[history.length-1].date!==pr.date){
+        history.push({date:pr.date,est1rm:pr.est1rm,weight:pr.weight,reps:pr.reps});
+      }
+      history.sort(function(a,b){return a.date<b.date?-1:1;});
+    }
+    var card=document.createElement('div');
+    card.className='card';card.style.marginBottom='12px';
+    var canvasId='prc-'+k.replace(/[^a-z0-9]/gi,'_');
+    if(history.length<2){
+      card.innerHTML='<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">'+pr.name+'</div>'
+        +'<div style="display:flex;gap:16px">'
+        +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase">Best</div><div style="font-size:18px;font-weight:600">'+pr.weight+'lb × '+pr.reps+'</div></div>'
+        +'<div><div style="font-size:10px;color:var(--text3);text-transform:uppercase">Est 1RM</div><div style="font-size:18px;font-weight:600;color:var(--accent)">~'+pr.est1rm+' lb</div></div>'
+        +'</div>'
+        +'<div style="font-size:11px;color:var(--text3);margin-top:6px">Log this exercise again to see progress</div>';
+    } else {
+      var labels=history.map(function(p){return new Date(p.date+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});});
+      var est1rms=history.map(function(p){return p.est1rm;});
+      var best=Math.max.apply(null,est1rms);
+      card.innerHTML='<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px">'+pr.name+'</div>'
+        +'<canvas id="'+canvasId+'" style="max-height:160px"></canvas>'
+        +'<div style="display:flex;justify-content:space-between;margin-top:6px">'
+        +'<div style="font-size:11px;color:var(--text3)">'+history.length+' session'+(history.length!==1?'s':'')+'</div>'
+        +'<div style="font-size:11px;color:var(--accent);font-weight:600">best ~'+best+' lb 1RM</div>'
+        +'</div>';
+    }
+    container.appendChild(card);
+    if(history.length<2||typeof Chart==='undefined')return;
+    var labelsForChart=labels;var dataForChart=est1rms;
+    setTimeout(function(){
+      var el=document.getElementById(canvasId);if(!el)return;
+      if(charts[canvasId])charts[canvasId].destroy();
+      charts[canvasId]=new Chart(el.getContext('2d'),{type:'line',data:{labels:labelsForChart,datasets:[{data:dataForChart,borderColor:accent,borderWidth:2,pointRadius:4,pointBackgroundColor:accent,tension:0.3,fill:true,backgroundColor:accent+'22'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return '~'+ctx.parsed.y+' lb 1RM';}}}},scales:{x:{grid:{color:gc},ticks:{color:tc,font:{size:10}}},y:{grid:{color:gc},suggestedMin:Math.min.apply(null,dataForChart)*0.9,ticks:{color:tc,font:{size:10},maxTicksLimit:4,callback:function(v){return Math.round(v)+'lb';}}}}}});
+    },0);
+  });
+}
 function checkForNewPRs(){
   if(!state.exercises||!state.exercises.length)return;
   var found=0;
@@ -1769,7 +2073,15 @@ function checkForNewPRs(){
       var est1rm=Math.round(w*(1+r/30));
       var key=ex.name.toLowerCase();
       if(!prs[key]||est1rm>prs[key].est1rm){
-        prs[key]={name:ex.name,weight:w,reps:r,est1rm:est1rm,date:TODAY_KEY};
+        var history=prs[key]?prs[key].history||[]:[];
+        // Add previous best to history before replacing
+        if(prs[key]&&prs[key].est1rm){
+          var lastInHistory=history.length?history[history.length-1]:null;
+          if(!lastInHistory||lastInHistory.date!==prs[key].date){
+            history.push({date:prs[key].date,est1rm:prs[key].est1rm,weight:prs[key].weight,reps:prs[key].reps});
+          }
+        }
+        prs[key]={name:ex.name,weight:w,reps:r,est1rm:est1rm,date:TODAY_KEY,history:history};
         found++;
       }
     });
