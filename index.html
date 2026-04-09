@@ -523,22 +523,20 @@ function showScreen(id,btn){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('screen-'+id).classList.add('active');btn.classList.add('active');
-  if(id==='analytics'){
-    if(typeof Chart==='undefined'){
-      const wait=setInterval(()=>{if(typeof Chart!=='undefined'){clearInterval(wait);renderAnalytics();}},100);
-    } else {
-      setTimeout(renderAnalytics,50);
-    }
-  }
-  // Always fully sync before switching tabs
+  // Always fully sync before rendering anything
   saveState();
-  // Ensure today's in-memory state is reflected in allDays
   allDays[TODAY_KEY]=JSON.parse(JSON.stringify(dayOffset===0?state:(lsGet('healthlog-today')||state)));
   lsSet('healthlog-alldays',allDays);
   if(id==='workouts'){}
   if(id==='prs'){renderPRs();checkForNewPRs();}
   if(id==='history'){renderHistory();}
-  if(id==='analytics'){}
+  if(id==='analytics'){
+    if(typeof Chart==='undefined'){
+      const wait=setInterval(()=>{if(typeof Chart!=='undefined'){clearInterval(wait);renderAnalytics();}},100);
+    } else {
+      renderAnalytics();
+    }
+  }
   if(id==='settings'){renderDataSummary();renderGoalInputs();renderApiUsage();}
 }
 function saveVital(key,val){state.vitals[key]=val;saveState();}
