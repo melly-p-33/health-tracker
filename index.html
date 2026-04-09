@@ -530,11 +530,16 @@ function showScreen(id,btn){
       setTimeout(renderAnalytics,50);
     }
   }
-  if(id==='workouts'){saveState();}
-  if(id==='prs'){saveState();renderPRs();checkForNewPRs();}
-  if(id==='history'){saveState();renderHistory();}
-  if(id==='analytics'){saveState();}
-  if(id==='settings'){saveState();renderDataSummary();renderGoalInputs();renderApiUsage();}
+  // Always fully sync before switching tabs
+  saveState();
+  // Ensure today's in-memory state is reflected in allDays
+  allDays[TODAY_KEY]=JSON.parse(JSON.stringify(dayOffset===0?state:(lsGet('healthlog-today')||state)));
+  lsSet('healthlog-alldays',allDays);
+  if(id==='workouts'){}
+  if(id==='prs'){renderPRs();checkForNewPRs();}
+  if(id==='history'){renderHistory();}
+  if(id==='analytics'){}
+  if(id==='settings'){renderDataSummary();renderGoalInputs();renderApiUsage();}
 }
 function saveVital(key,val){state.vitals[key]=val;saveState();}
 function saveWorkoutTime(val){state.workoutTime=val;saveState();}
@@ -809,8 +814,11 @@ function deletePR(key,sheet){
 
 function removeMeal(i){state.meals.splice(i,1);updateMacros();renderMeals();saveState();}
 function renderHistory(){
-  // Always sync today before rendering
-  allDays[TODAY_KEY]=JSON.parse(JSON.stringify(state));
+  // Sync today: if on past day, get today from dedicated key; if on today use state
+  const todayData=dayOffset===0?state:(lsGet('healthlog-today')||state);
+  allDays[TODAY_KEY]=JSON.parse(JSON.stringify(todayData));
+  const freshDays=lsGet('healthlog-alldays');if(freshDays)allDays=freshDays;
+  allDays[TODAY_KEY]=JSON.parse(JSON.stringify(todayData));
   lsSet('healthlog-alldays',allDays);
   const c=document.getElementById('history-list'),keys=Object.keys(allDays).sort().reverse();
   if(!keys.length){c.innerHTML='<div class="empty-state">No past days logged yet.<br>Data saves automatically as you log.</div>';return;}
@@ -948,19 +956,23 @@ function getViewKey(){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 function shiftDay(dir){
-  // Always write current state back before moving
-  if(dayOffset===0){
-    allDays[TODAY_KEY]=JSON.parse(JSON.stringify(state));
-    lsSet('healthlog-today',state);
-  }
+  // Save current day's state to BOTH allDays and today-key before moving
   saveState();
-  const prevOffset=dayOffset;
+  // Also explicitly persist today separately so it's never lost
+  const todaySnap=lsGet('healthlog-today');
+  if(dayOffset===0){
+    // Leaving today - snapshot current state as today
+    lsSet('healthlog-today',state);
+    allDays[TODAY_KEY]=JSON.parse(JSON.stringify(state));
+    lsSet('healthlog-alldays',allDays);
+  }
   dayOffset+=dir;
   if(dayOffset>0)dayOffset=0;
-  // Re-read fresh from storage on every navigation to catch all changes
+  // Re-read fresh allDays from storage
   const freshDays=lsGet('healthlog-alldays');if(freshDays)allDays=freshDays;
   if(dayOffset===0){
-    const s=lsGet('healthlog-today');if(s)state=s;
+    // Returning to today - restore from today-key
+    const s=lsGet('healthlog-today');if(s){state=s;allDays[TODAY_KEY]=JSON.parse(JSON.stringify(s));}
   } else {
     const dk=getViewKey();
     state=allDays[dk]?JSON.parse(JSON.stringify(allDays[dk])):{vitals:{},meals:[],exercises:[],water:0,sleepQ:null,feel:null,sleepMins:null,workoutTime:'',notes:'',cardio:[]};
