@@ -484,8 +484,28 @@ function lsGet(k){try{return JSON.parse(localStorage.getItem(k));}catch(e){retur
 function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
 
 function init(){
-  const s=lsGet('healthlog-today');if(s)state=s;
   const d=lsGet('healthlog-alldays');if(d)allDays=d;
+  const s=lsGet('healthlog-today');
+  if(s){
+    // Only load today's state if it was actually saved today
+    // If the stored data belongs to a previous date, leave it in allDays only
+    const savedKey=lsGet('healthlog-today-key');
+    if(savedKey===TODAY_KEY){
+      state=s;
+    } else {
+      // It's a new day - make sure yesterday's data is in allDays under the right key
+      if(savedKey&&s&&savedKey!==TODAY_KEY){
+        if(!allDays[savedKey]||JSON.stringify(allDays[savedKey])===JSON.stringify({})){
+          allDays[savedKey]=s;
+        }
+        lsSet('healthlog-alldays',allDays);
+      }
+      // Start today fresh
+      state={vitals:{},meals:[],exercises:[],water:0,sleepQ:null,feel:null,sleepMins:null,workoutTime:'',notes:'',cardio:[]};
+      lsSet('healthlog-today',state);
+      lsSet('healthlog-today-key',TODAY_KEY);
+    }
+  }
   const g=lsGet('healthlog-goals');if(g)goals=g;
   const k=lsGet('healthlog-apikey');if(k)document.getElementById('api-key-input').value=k;
   const p=lsGet('healthlog-prs');if(p)prs=p;
@@ -506,7 +526,7 @@ function saveState(){
   allDays[key]=JSON.parse(JSON.stringify(state));
   lsSet('healthlog-alldays',allDays);
   // Always keep today in sync in its own key too
-  if(key===TODAY_KEY)lsSet('healthlog-today',state);
+  if(key===TODAY_KEY){lsSet('healthlog-today',state);lsSet('healthlog-today-key',TODAY_KEY);}
   if(typeof renderBurnEstimate==='function')renderBurnEstimate();
 
   }catch(e){console.error("saveState error",e);}
